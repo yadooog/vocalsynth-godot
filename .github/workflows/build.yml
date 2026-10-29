@@ -74,12 +74,13 @@ jobs:
       - name: Tidy Windows build files
         if: matrix.platform == 'windows'
         shell: pwsh
-        run: Remove-Item project/bin/windows/* -Include *.exp,*.lib,*.pdb,*.a -Force
+        run: Remove-Item build/windows/* -Include *.exp,*.lib,*.pdb,*.a -Force
 
       - uses: actions/upload-artifact@v4
         with:
           name: bin-${{ matrix.name }}
-          path: project/bin/${{ matrix.platform }}/
+          # only this run's fresh files (project/bin also holds older committed copies)
+          path: build/${{ matrix.platform }}/
           if-no-files-found: error
 
   test:
