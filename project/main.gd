@@ -36,6 +36,9 @@ func _ready() -> void:
 	player.play()
 
 	voicebox.synth = synth
+	if OS.has_feature("web"):
+		get_tree().create_timer(3.0).timeout.connect(func():
+			print("debug: synth time %.3f playing %s rate %s" % [synth.get_time(), player.playing, AudioServer.get_mix_rate()]))
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
 
