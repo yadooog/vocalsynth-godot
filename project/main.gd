@@ -33,6 +33,7 @@ func _ready() -> void:
 	synth.setup(generator.mix_rate)
 	var player := AudioStreamPlayer.new()
 	player.stream = generator
+	player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM # web defaults to "sample" playback, which can't play a generator
 	add_child(player)
 	player.play()
 	playback = player.get_stream_playback()
