@@ -24,7 +24,14 @@ public:
 	Glottis glottis;
 	Tract tract;
 	TractShaper shaper;
-	bool velumForcedOpen = false; // open the nose without a touch
+	bool velumForcedOpen = false; // open the nose without a touch ("hum")
+
+	// Voice size: 1 = the original. 2 = tract twice as long (giant), 0.5 = half (tiny).
+	double voiceSize = 1.0;
+	// Jaw: 0 = nearly closed, 0.5 = the original, 1 = wide open.
+	double jaw = 0.5;
+	// Lips: 0 = closed, 1 = the original, up to ~1.4 = spread wide.
+	double lips = 1.0;
 
 	explicit Synthesizer(double sampleRate);
 
@@ -51,6 +58,15 @@ private:
 	};
 	double sampleRate;
 	std::vector<Touch> touches;
+
+	// state for resampling the tract when voiceSize != 1
+	double stepPhase = 0;
+	double glottalSum = 0;
+	int glottalCount = 0;
+	double lastGlottalInput = 0;
+	double prevTractOut = 0, lastTractOut = 0;
+
+	void applyJawAndLips();
 
 	Touch *findAlive(int id);
 	void applyTouches();

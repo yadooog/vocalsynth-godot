@@ -7,6 +7,13 @@ Tract::Tract(Glottis &glottis_, double tractSampleRate_)
 		: glottis(glottis_), tractSampleRate(tractSampleRate_),
 		  fricationNoise(1000, 0.5, tractSampleRate_, 0x8000) {}
 
+void Tract::setStepRate(double stepsPerSecond) {
+	if (stepsPerSecond == tractSampleRate) return;
+	rateChangeTime = time;
+	rateChangeCount = sampleCount;
+	tractSampleRate = stepsPerSecond;
+}
+
 void Tract::calculateNoseReflections() {
 	double a[noseLength];
 	for (int i = 0; i < noseLength; i++) {
@@ -106,7 +113,7 @@ double Tract::step(double glottalOutput, double lambda) {
 	const double noseOutput = noseRight[noseLength - 1];
 
 	sampleCount++;
-	time = sampleCount / tractSampleRate;
+	time = rateChangeTime + (sampleCount - rateChangeCount) / tractSampleRate;
 
 	return lipOutput + noseOutput;
 }

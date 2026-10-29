@@ -1,0 +1,94 @@
+extends Control
+## A plain drag pad. `value` runs 0..1 on each axis (y = 0 at the top).
+## With `horizontal_only` it becomes a slider. Double-click resets it.
+
+signal moved(value: Vector2)
+signal held(on: bool)
+
+const INK := Color(0.133, 0.133, 0.125)
+const PAD := Color(0.925, 0.91, 0.875)
+
+@export var caption := ""
+@export var value := Vector2(0.5, 0.5)
+@export var default_value := Vector2(0.5, 0.5)
+@export var horizontal_only := false
+## Number of vertical guide lines, and which of them are drawn darker.
+@export var lines := 0
+@export var marked_lines := PackedInt32Array()
+
+var _pointer := -2 # -1 = mouse, >= 0 = touch index, -2 = nobody
+
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and event.double_click:
+			set_value(default_value)
+		elif event.pressed:
+			_grab(-1, event.position)
+		elif _pointer == -1:
+			_let_go()
+		accept_event()
+	elif event is InputEventMouseMotion and _pointer == -1:
+		_drag(event.position)
+		accept_event()
+	elif event is InputEventScreenTouch:
+		if event.pressed and _pointer == -2:
+			_grab(event.index, event.position)
+		elif not event.pressed and event.index == _pointer:
+			_let_go()
+		accept_event()
+	elif event is InputEventScreenDrag and event.index == _pointer:
+		_drag(event.position)
+		accept_event()
+
+
+func set_value(v: Vector2) -> void:
+	value = v.clamp(Vector2.ZERO, Vector2.ONE)
+	moved.emit(value)
+	queue_redraw()
+
+
+func _grab(pointer: int, pos: Vector2) -> void:
+	_pointer = pointer
+	held.emit(true)
+	_drag(pos)
+
+
+func _let_go() -> void:
+	_pointer = -2
+	held.emit(false)
+
+
+func _drag(pos: Vector2) -> void:
+	var v := pos / size
+	if horizontal_only:
+		v.y = value.y
+	set_value(v)
+
+
+func _draw() -> void:
+	var font := ThemeDB.fallback_font
+	if horizontal_only:
+		var y := size.y * 0.5
+		draw_line(Vector2(0, y), Vector2(size.x, y), INK, 1.0)
+		var mid := default_value.x * size.x
+		draw_line(Vector2(mid, y - 5), Vector2(mid, y + 5), Color(INK, 0.4), 1.0)
+		var r := Rect2(Vector2(value.x * size.x - 6, y - 9), Vector2(12, 18))
+		draw_rect(r, PAD)
+		draw_rect(r, INK, false, 1.5)
+		if caption != "":
+			draw_string(font, Vector2(0, y - 10), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(INK, 0.5))
+		return
+
+	draw_rect(Rect2(Vector2.ZERO, size), PAD)
+	for i in lines:
+		var x := (i + 0.5) / lines * size.x
+		var marked := marked_lines.has(i)
+		draw_line(Vector2(x, 6), Vector2(x, size.y - 6), Color(INK, 0.3 if marked else 0.1), 1.0)
+	draw_rect(Rect2(Vector2.ZERO, size), INK, false, 1.0)
+	var p := value * size
+	var m := Rect2(p - Vector2(8, 8), Vector2(16, 16))
+	draw_rect(m, Color(INK, 0.08 if _pointer == -2 else 0.25))
+	draw_rect(m, INK, false, 1.5)
+	if caption != "":
+		draw_string(font, Vector2(6, size.y - 6), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(INK, 0.5))

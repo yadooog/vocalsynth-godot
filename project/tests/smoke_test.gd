@@ -25,13 +25,27 @@ func _initialize() -> void:
 	synth.touch_end(2)
 	ok = _check("nasal", sound, 0.001) and ok
 
+	synth.voice_size = 0.5
+	ok = _check("tiny voice", synth.generate(24000), 0.01) and ok
+	synth.voice_size = 2.0
+	ok = _check("giant voice", synth.generate(24000), 0.01) and ok
+	synth.voice_size = 1.3
+	synth.jaw = 0.9
+	synth.lips = 0.5
+	ok = _check("odd size, open jaw, round lips", synth.generate(24000), 0.01) and ok
+	synth.voice_size = 1.0
+	synth.lips = 0.0
+	synth.velum_open = true
+	synth.generate(24000)
+	ok = _check("hum with closed lips", synth.generate(24000), 0.002) and ok
+
 	# The main scene should load and create its synth.
 	var main: Node = load("res://main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
 	await process_frame
 	var voicebox = main.get_node("%Voicebox")
-	if voicebox.synth == null:
+	if main.synth == null or voicebox.synth == null:
 		printerr("FAIL: main scene did not create a synth")
 		ok = false
 	else:

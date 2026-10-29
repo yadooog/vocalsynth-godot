@@ -43,6 +43,10 @@ public:
 
 	Tract(Glottis &glottis, double tractSampleRate);
 
+	// How many tract steps happen per second. Normally twice the sample rate;
+	// fewer steps per second = a longer tract = a bigger voice.
+	void setStepRate(double stepsPerSecond);
+
 	void calculateNoseReflections();
 	void calculateNewBlockParameters();
 	double step(double glottalOutput, double lambda);
@@ -55,6 +59,8 @@ private:
 	double tractSampleRate;
 	FilteredNoiseSource fricationNoise;
 	long long sampleCount = 0;
+	long long rateChangeCount = 0; // sampleCount when the step rate last changed
+	double rateChangeTime = 0;     // time when the step rate last changed
 
 	double right[n] = {};
 	double left[n] = {};

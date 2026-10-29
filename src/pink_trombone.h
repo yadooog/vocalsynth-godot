@@ -45,6 +45,12 @@ public:
 	double get_vibrato_amount() const;
 	void set_velum_open(bool v);
 	bool get_velum_open() const;
+	void set_voice_size(double v);
+	double get_voice_size() const;
+	void set_jaw(double v);
+	double get_jaw() const;
+	void set_lips(double v);
+	double get_lips() const;
 	void set_volume(double v);
 	double get_volume() const;
 

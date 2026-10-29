@@ -22,16 +22,21 @@ You don't need a compiler: the engine files in `project/bin/` are built by GitHu
 
 - **Tongue**: drag the round marker inside the shaded pad.
 - **Constrictions**: click and hold anywhere in the mouth. Near the roof makes
-  hissing sounds ("s", "sh", "f"); above the roof closes it ("t", "p", "k" when released).
-- **Nose**: click above the line under the nose to open the velum ("m", "n").
-- **Pitch**: the strip at the bottom. Left/right is pitch, up/down is how tense the voice is.
-- **always voice** / **pitch wobble** buttons turn those off and on.
+  hissing sounds ("s", "sh", "f"); on or above the roof closes it ("t", "k" when released).
+- **pitch** pad: left/right is the note, up is a tense voice, down is breathy.
+  Holding it keeps the voice going when **voice** is off.
+- **mouth** pad: left/right closes or spreads the lips ("oo" / "ee", or "p"/"b" when
+  you open them from closed), up/down closes or opens the jaw.
+- **size**: from a tiny squeaky voice (left) to a giant one (right). Middle is normal.
+- **voice** keeps the voice on all the time, **wobble** adds natural pitch drift,
+  **hum** opens the nose ("m", "n", "ng" with the lips or tongue closed).
+- Double-click a pad or the slider to reset it.
 
 ## What's where
 
 | Path | What it is |
 | --- | --- |
-| `project/` | The Godot project. `voicebox.gd` draws the tract and handles the mouse. |
+| `project/` | The Godot project. `voicebox.gd` draws the tract, `xy_pad.gd` is the pads and slider, `main.gd` connects them to the synth. |
 | `project/bin/` | The compiled engine for Mac, Windows, Linux and web (made by GitHub, don't edit). |
 | `src/synth/` | The voice engine in plain C++ (no Godot code), ported file by file from pink-trombone-mod. |
 | `src/pink_trombone.cpp` | Makes the engine usable from GDScript as the `PinkTrombone` class. |
@@ -49,7 +54,9 @@ synth.fill(player.get_stream_playback())
 ```
 
 Controls: `frequency` (Hz), `tenseness` (0-1), `voice_held`, `always_voice`,
-`auto_wobble`, `vibrato_amount`, `velum_open`, `volume`, `set_tongue(index, diameter)`,
+`auto_wobble`, `vibrato_amount`, `velum_open` (hum), `voice_size` (1 = original,
+0.5 tiny, 2 giant), `jaw` (0-1, 0.5 = original), `lips` (0 closed, 1 original, ~1.4 spread),
+`volume`, `set_tongue(index, diameter)`,
 `touch_start/touch_move/touch_end(id, index, diameter)`. Tract positions use the
 original's units: `index` runs from the throat (0) to the lips (~39), `diameter` is
 the distance in from the roof (0 = touching the roof, negative = above it).
@@ -78,7 +85,8 @@ node tools/compare_js.mjs <pink-trombone-mod>/src tools/scenario.json out.f32
 ```
 
 Both sides use the same seeded random numbers, so the output should match exactly
-(`max diff 0`).
+(`max diff 0`). The extras (voice size, jaw, lips) are off at their default values,
+so the check still covers the core engine.
 
 ## Licence
 

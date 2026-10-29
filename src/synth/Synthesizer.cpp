@@ -25,6 +25,38 @@ void Synthesizer::synthesizeBlock(float *out, int count) {
 	const double deltaTime = count / sampleRate;
 	applyTouches();
 	calculateNewBlockParameters(deltaTime);
+	const double size = clamp(voiceSize, 0.25, 4.0);
+	tract.setStepRate(2 * sampleRate / size);
+	if (size != 1.0) {
+		// The tract takes 2/size steps per output sample. Glottis samples are averaged
+		// into each step, and the steps are averaged (or interpolated) back to the output.
+		const double stepsPerSample = 2 / size;
+		const double gain = 0.25 / std::sqrt(size); // keeps loudness roughly even across sizes
+		for (int i = 0; i < count; i++) {
+			const double lambda = (i + 0.5) / count;
+			glottalSum += glottis.step((double)i / count);
+			glottalCount++;
+			stepPhase += stepsPerSample;
+			double sum = 0;
+			int steps = 0;
+			while (stepPhase >= 1) {
+				stepPhase -= 1;
+				if (glottalCount > 0) {
+					lastGlottalInput = glottalSum / glottalCount;
+					glottalSum = 0;
+					glottalCount = 0;
+				}
+				const double input = lastGlottalInput;
+				prevTractOut = lastTractOut;
+				lastTractOut = tract.step(input, lambda);
+				sum += lastTractOut;
+				steps++;
+			}
+			const double v = steps > 0 ? sum / steps : interpolate(prevTractOut, lastTractOut, stepPhase);
+			out[i] = (float)(v * gain);
+		}
+		return;
+	}
 	for (int i = 0; i < count; i++) {
 		const double lambda1 = (double)i / count;
 		const double lambda2 = (i + 0.5) / count;
@@ -97,6 +129,7 @@ void Synthesizer::applyTouches() {
 	for (int i = 0; i < Tract::n; i++) {
 		shaper.targetDiameter[i] = shaper.getRestDiameter(i);
 	}
+	applyJawAndLips();
 	bool velumOpen = velumForcedOpen;
 	for (const Touch &t : touches) {
 		if (!t.alive) continue;
@@ -105,6 +138,25 @@ void Synthesizer::applyTouches() {
 		reduceTargetDiametersByTouch(t.index, std::fmax(0, t.diameter - 0.3));
 	}
 	shaper.velumTarget = velumOpen ? TractShaper::velumOpenTarget : TractShaper::velumClosedTarget;
+}
+
+// Jaw scales the whole mouth (fading in from the throat); lips set the last few cells.
+void Synthesizer::applyJawAndLips() {
+	if (jaw != 0.5) {
+		const double factor = 0.5 + clamp(jaw, 0, 1);
+		const int fadeStart = 7, fadeEnd = Tract::bladeStart + 2;
+		for (int i = fadeStart; i < Tract::n; i++) {
+			const double amount = clamp((double)(i - fadeStart) / (fadeEnd - fadeStart), 0, 1);
+			shaper.targetDiameter[i] *= 1 + (factor - 1) * amount;
+		}
+	}
+	if (lips != 1.0) {
+		const double l = clamp(lips, 0, 2);
+		for (int i = Tract::lipStart - 1; i < Tract::n; i++) {
+			const double amount = (i == Tract::lipStart - 1) ? 0.5 : 1.0; // soften the corner
+			shaper.targetDiameter[i] *= 1 + (l - 1) * amount;
+		}
+	}
 }
 
 void Synthesizer::reduceTargetDiametersByTouch(double index, double diameter) {
