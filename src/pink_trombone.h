@@ -118,7 +118,7 @@ protected:
 	static void _bind_methods() {}
 
 private:
-	bool playing = false;
+	bool playing = true; // true from the start, in case _start is not called (seen on web)
 	std::vector<float> mono;
 };
 
