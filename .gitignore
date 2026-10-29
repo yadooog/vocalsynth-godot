@@ -1,7 +1,6 @@
 # Godot
 .godot/
 __pycache__/
-export_presets.cfg
 /android/
 
 # Build output (the copies inside project/bin/ ARE committed, by GitHub Actions)
