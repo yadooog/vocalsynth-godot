@@ -42,7 +42,7 @@ func _ready() -> void:
 	player.play()
 
 	voicebox.synth = synth
-	camera.look_at_from_position(Vector3(0, 2.6, 10.5), Vector3(0, 2.1, 0))
+	camera.look_at_from_position(Vector3(0, 2.5, 9.0), Vector3(0, 2.0, 0))
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
 
@@ -100,7 +100,7 @@ func _walk_towards(pos: Vector2) -> void:
 	var dir := camera.project_ray_normal(pos)
 	var hit = Plane(Vector3.UP, 0.0).intersects_ray(from, dir)
 	if hit != null:
-		character.walk_to(Vector3(clampf(hit.x, -1.5, 1.5), 0.0, clampf(hit.z, -1.2, 1.2)))
+		character.walk_to(Vector3(clampf(hit.x, -0.7, 0.7), 0.0, clampf(hit.z, -1.0, 0.8)))
 
 
 func _keyboard_walk() -> void:
@@ -115,7 +115,7 @@ func _keyboard_walk() -> void:
 		dir.z += 1.0
 	if dir != Vector3.ZERO:
 		var p: Vector3 = character.position + dir.normalized() * 0.5
-		character.walk_to(Vector3(clampf(p.x, -1.5, 1.5), 0.0, clampf(p.z, -1.2, 1.2)))
+		character.walk_to(Vector3(clampf(p.x, -0.7, 0.7), 0.0, clampf(p.z, -1.0, 0.8)))
 
 
 func _on_pitch_moved(v: Vector2) -> void:

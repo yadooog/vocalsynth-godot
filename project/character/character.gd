@@ -43,8 +43,8 @@ const HEAD_MAX_LEAN := 0.75      # radians; the neck won't let it go past this
 
 const TONGUE_POINTS := 20
 const TONGUE_MAX_LENGTH := 3.8
-const TONGUE_OUT_START := 0.3    # mouth openness where the tongue starts to come out
-const TONGUE_OUT_FULL := 0.8     # ... and where it is all the way out
+const TONGUE_OUT_START := 0.12   # mouth openness where the tongue starts to come out
+const TONGUE_OUT_FULL := 0.65    # ... and where it is all the way out
 const TONGUE_RADIUS := 0.17
 const TONGUE_FLATNESS := 0.5
 const TONGUE_GRAVITY := 8.0
@@ -62,7 +62,7 @@ const TONGUE_STEP := 1.0 / 120.0
 
 const HEAD_COLOR := Color(0.957, 0.663, 0.769)
 const OUTFIT_COLOR := Color(0.435, 0.827, 0.941)
-const TONGUE_COLOR := Color(0.91, 0.376, 0.486)
+const TONGUE_COLOR := Color(1.0, 0.47, 0.6)
 const LIP_COLOR := Color(1.0, 0.2, 0.275)
 
 var toon_shader: Shader = preload("res://character/toon.gdshader")
@@ -427,12 +427,12 @@ func update_character(dt: float, face: Dictionary, time: float) -> void:
 	var brow: float = face.get("brow", 0.0)
 
 	# Head width follows the lips and its height follows the jaw, with a springy overshoot.
-	var want_sx: float = lerpf(0.82, 1.22, clampf(face.get("lips", 0.7), 0.0, 1.0))
-	var want_sy: float = lerpf(0.88, 1.22, clampf(face.get("jaw", 0.5), 0.0, 1.0))
+	var want_sx: float = lerpf(0.68, 1.5, clampf(face.get("lips", 0.7), 0.0, 1.0))
+	var want_sy: float = lerpf(0.75, 1.45, clampf(face.get("jaw", 0.5), 0.0, 1.0))
 	head_sx_v += ((want_sx - head_sx) * 220.0 - head_sx_v * 14.0) * dt
 	head_sy_v += ((want_sy - head_sy) * 220.0 - head_sy_v * 14.0) * dt
-	var nsx: float = clampf(head_sx + head_sx_v * dt, 0.6, 1.5)
-	var nsy: float = clampf(head_sy + head_sy_v * dt, 0.6, 1.5)
+	var nsx: float = clampf(head_sx + head_sx_v * dt, 0.5, 1.7)
+	var nsy: float = clampf(head_sy + head_sy_v * dt, 0.5, 1.7)
 	if absf(nsx - head_sx) > 0.0005 or absf(nsy - head_sy) > 0.0005:
 		_apply_head_shape(nsx, nsy)
 
