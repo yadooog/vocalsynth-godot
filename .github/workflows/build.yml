@@ -47,18 +47,34 @@ jobs:
           platform: ${{ matrix.platform }}
           windows-compiler: msvc
 
+      - name: Restore build cache
+        uses: ./godot-cpp/.github/actions/godot-cache-restore
+        with:
+          scons-cache: ${{ github.workspace }}/.scons-cache/
+          cache-name: ${{ matrix.name }}
+
       - name: Build debug (used by the editor)
         shell: sh
+        env:
+          SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
         run: scons platform=${{ matrix.platform }} arch=${{ matrix.arch }} target=template_debug ${{ matrix.flags }}
 
       - name: Build release (used by exported games)
         shell: sh
+        env:
+          SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
         run: scons platform=${{ matrix.platform }} arch=${{ matrix.arch }} target=template_release ${{ matrix.flags }}
+
+      - name: Save build cache
+        uses: ./godot-cpp/.github/actions/godot-cache-save
+        with:
+          scons-cache: ${{ github.workspace }}/.scons-cache/
+          cache-name: ${{ matrix.name }}
 
       - name: Tidy Windows build files
         if: matrix.platform == 'windows'
         shell: pwsh
-        run: Remove-Item project/bin/windows/* -Include *.exp,*.lib,*.pdb -Force
+        run: Remove-Item project/bin/windows/* -Include *.exp,*.lib,*.pdb,*.a -Force
 
       - uses: actions/upload-artifact@v4
         with:
