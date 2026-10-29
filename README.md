@@ -49,9 +49,12 @@ You don't need a compiler: the engine files in `project/bin/` are built by GitHu
 ```gdscript
 var synth = ClassDB.instantiate("PinkTrombone")   # or PinkTrombone.new()
 synth.setup(AudioServer.get_mix_rate())
-# each frame, with an AudioStreamGenerator playing:
-synth.fill(player.get_stream_playback())
+$AudioStreamPlayer.stream = synth.create_stream()  # plays on Godot's audio thread
+$AudioStreamPlayer.play()
 ```
+
+All methods are safe to call from the game while the audio thread is running.
+(`fill(playback)` still works for an `AudioStreamGenerator`, but adds lag.)
 
 Controls: `frequency` (Hz), `tenseness` (0-1), `voice_held`, `always_voice`,
 `auto_wobble`, `vibrato_amount`, `velum_open` (hum), `voice_size` (1 = original,

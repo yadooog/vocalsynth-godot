@@ -50,6 +50,10 @@ func _initialize() -> void:
 		ok = false
 	else:
 		print("ok: main scene runs")
+		var t0: float = main.synth.get_time()
+		for i in 30:
+			await process_frame
+		print("info: audio thread advanced the synth by %.3f s" % (main.synth.get_time() - t0))
 
 	quit(0 if ok else 1)
 

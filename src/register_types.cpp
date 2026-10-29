@@ -10,6 +10,8 @@ using namespace godot;
 void initialize_vocalsynth_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) return;
 	GDREGISTER_CLASS(PinkTrombone);
+	GDREGISTER_CLASS(PinkTromboneStream);
+	GDREGISTER_CLASS(PinkTrombonePlayback);
 }
 
 void uninitialize_vocalsynth_module(ModuleInitializationLevel p_level) {}
