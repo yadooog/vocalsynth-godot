@@ -59,6 +59,7 @@ public:
 	double get_jaw() const;
 	void set_lips(double v);
 	double get_lips() const;
+	double get_level() const;
 	void set_volume(double v);
 	double get_volume() const;
 
@@ -77,6 +78,7 @@ private:
 	std::unique_ptr<pt::Synthesizer> synth;
 	std::vector<float> buffer;
 	double volume = 1.0;
+	double level = 0.0; // smoothed loudness of what was last played (rms)
 };
 
 // An AudioStream that plays a PinkTrombone directly on Godot's audio thread,

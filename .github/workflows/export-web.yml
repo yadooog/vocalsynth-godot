@@ -43,6 +43,13 @@ jobs:
           unzip -q -j templates.tpz "templates/web_*" "templates/version.txt" -d $dest
           ls $dest
 
+      - name: Smoke test (fails on any script error)
+        run: |
+          ./godot --headless --path project --import || true
+          ./godot --headless --path project -s res://tests/smoke_test.gd 2>&1 | tee smoke.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR:" smoke.log
+          grep -q "main scene runs" smoke.log
+
       - name: Export
         run: |
           mkdir -p web

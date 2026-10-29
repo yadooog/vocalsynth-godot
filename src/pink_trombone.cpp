@@ -2,6 +2,8 @@
 
 #include <godot_cpp/core/class_db.hpp>
 
+#include <cmath>
+
 using namespace godot;
 
 #define LOCK std::lock_guard<std::mutex> lock(mutex)
@@ -26,8 +28,18 @@ void PinkTrombone::mix(float *out, int frames) {
 	LOCK;
 	synth->synthesize(out, frames);
 	const float v = (float)volume;
-	for (int i = 0; i < frames; i++) out[i] *= v;
+	double sum = 0;
+	for (int i = 0; i < frames; i++) {
+		out[i] *= v;
+		sum += (double)out[i] * out[i];
+	}
+	// Smooth over roughly a tenth of a second, whatever the buffer size.
+	const double rms = frames > 0 ? std::sqrt(sum / frames) : 0.0;
+	const double k = 1.0 - std::exp(-frames / (0.1 * 44100.0));
+	level += (rms - level) * k;
 }
+
+double PinkTrombone::get_level() const { LOCK; return level; }
 
 // Pushes as many frames as the generator has room for. Call every frame from _process.
 int PinkTrombone::fill(const Ref<AudioStreamGeneratorPlayback> &playback) {
@@ -137,6 +149,7 @@ void PinkTrombone::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_amplitudes"), &PinkTrombone::get_amplitudes);
 	ClassDB::bind_method(D_METHOD("get_nose_amplitudes"), &PinkTrombone::get_nose_amplitudes);
 	ClassDB::bind_method(D_METHOD("get_time"), &PinkTrombone::get_time);
+	ClassDB::bind_method(D_METHOD("get_level"), &PinkTrombone::get_level);
 
 	// Tract layout, so scripts don't have to hard-code it.
 	ClassDB::bind_integer_constant(get_class_static(), "", "TRACT_LENGTH", pt::Tract::n);
