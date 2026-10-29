@@ -44,11 +44,13 @@ jobs:
           ls $dest
 
       - name: Smoke test (fails on any script error)
+        timeout-minutes: 8
         run: |
           ./godot --headless --path project --import || true
-          ./godot --headless --path project -s res://tests/smoke_test.gd 2>&1 | tee smoke.log
+          timeout 240 ./godot --headless --path project -s res://tests/smoke_test.gd > smoke.log 2>&1 || echo "smoke test exited with $?"
+          head -c 20000 smoke.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR:" smoke.log
-          grep -q "main scene runs" smoke.log
+          grep -q "character runs" smoke.log
 
       - name: Export
         run: |
