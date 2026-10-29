@@ -29,7 +29,8 @@ func _ready() -> void:
 
 	var generator := AudioStreamGenerator.new()
 	generator.mix_rate = AudioServer.get_mix_rate()
-	generator.buffer_length = 0.08
+	# Browsers stall more, so give the web build a bit more buffer (costs a little lag).
+	generator.buffer_length = 0.12 if OS.has_feature("web") else 0.08
 	synth.setup(generator.mix_rate)
 	var player := AudioStreamPlayer.new()
 	player.stream = generator
