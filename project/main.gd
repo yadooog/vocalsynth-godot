@@ -6,7 +6,6 @@ const SEMITONES := 24
 const MARKS := [0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0]
 
 var synth # PinkTrombone (untyped so this script still loads if the engine is missing)
-var generator_playback: AudioStreamGeneratorPlayback # web only
 
 @onready var voicebox: Control = %Voicebox
 @onready var pitch_pad: Control = %PitchPad
@@ -41,18 +40,11 @@ func _ready() -> void:
 	player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM # web defaults to "sample" playback, which can't play these
 	add_child(player)
 	player.play()
-	if player.stream is AudioStreamGenerator:
-		generator_playback = player.get_stream_playback()
 
 	voicebox.synth = synth
 	camera.look_at_from_position(Vector3(0, 2.6, 10.5), Vector3(0, 2.1, 0))
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
-
-
-func _process(_delta: float) -> void:
-	if generator_playback:
-		synth.fill(generator_playback)
 
 
 func _process(delta: float) -> void:
