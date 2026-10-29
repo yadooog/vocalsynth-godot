@@ -6,6 +6,7 @@ const SEMITONES := 24
 const MARKS := [0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0]
 
 var synth # PinkTrombone (untyped so this script still loads if the engine is missing)
+var generator_playback: AudioStreamGeneratorPlayback # web only
 
 @onready var voicebox: Control = %Voicebox
 @onready var pitch_pad: Control = %PitchPad
@@ -26,21 +27,33 @@ func _ready() -> void:
 		return
 	synth = ClassDB.instantiate("PinkTrombone")
 
-	# The synth runs on Godot's audio thread through its own stream, so what you
-	# drag is heard within one audio buffer.
 	synth.setup(AudioServer.get_mix_rate())
 	var player := AudioStreamPlayer.new()
-	player.stream = synth.create_stream()
-	player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM # web defaults to "sample" playback, which can't play this
+	if OS.has_feature("web"):
+		# The web build has no audio thread, and the custom stream stays silent there
+		# (Godot 4.3), so feed a generator from _process instead.
+		var generator := AudioStreamGenerator.new()
+		generator.mix_rate = AudioServer.get_mix_rate()
+		generator.buffer_length = 0.12
+		player.stream = generator
+	else:
+		# The synth runs on Godot's audio thread through its own stream, so what
+		# you drag is heard within one audio buffer.
+		player.stream = synth.create_stream()
+	player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM # web defaults to "sample" playback, which can't play these
 	add_child(player)
 	player.play()
+	if player.stream is AudioStreamGenerator:
+		generator_playback = player.get_stream_playback()
 
 	voicebox.synth = synth
-	if OS.has_feature("web"):
-		get_tree().create_timer(3.0).timeout.connect(func():
-			print("debug: synth time %.3f playing %s rate %s" % [synth.get_time(), player.playing, AudioServer.get_mix_rate()]))
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
+
+
+func _process(_delta: float) -> void:
+	if generator_playback:
+		synth.fill(generator_playback)
 
 
 func _on_pitch_moved(v: Vector2) -> void:
