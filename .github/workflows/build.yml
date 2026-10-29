@@ -1,0 +1,133 @@
+# Compiles the C++ voice engine for every platform, tests it in a headless Godot,
+# and commits the compiled files into project/bin/ so the project opens without
+# anyone needing a compiler. Runs when the C++ code changes, or by hand from the
+# Actions tab ("Run workflow").
+name: Build engine
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "SConstruct"
+      - "godot-cpp"
+      - ".github/workflows/build.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "SConstruct"
+      - "godot-cpp"
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, platform: linux, arch: x86_64, os: ubuntu-22.04, flags: "" }
+          - { name: windows, platform: windows, arch: x86_64, os: windows-latest, flags: "" }
+          - { name: macos, platform: macos, arch: universal, os: macos-latest, flags: "" }
+          - { name: web, platform: web, arch: wasm32, os: ubuntu-22.04, flags: "threads=no" }
+          - { name: web-threads, platform: web, arch: wasm32, os: ubuntu-22.04, flags: "threads=yes" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup godot-cpp
+        uses: ./godot-cpp/.github/actions/setup-godot-cpp
+        with:
+          platform: ${{ matrix.platform }}
+          windows-compiler: msvc
+
+      - name: Build debug (used by the editor)
+        shell: sh
+        run: scons platform=${{ matrix.platform }} arch=${{ matrix.arch }} target=template_debug ${{ matrix.flags }}
+
+      - name: Build release (used by exported games)
+        shell: sh
+        run: scons platform=${{ matrix.platform }} arch=${{ matrix.arch }} target=template_release ${{ matrix.flags }}
+
+      - name: Tidy Windows build files
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: Remove-Item project/bin/windows/* -Include *.exp,*.lib,*.pdb -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.name }}
+          path: project/bin/${{ matrix.platform }}/
+          if-no-files-found: error
+
+  test:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: bin-linux
+          path: project/bin/linux/
+
+      - name: Get Godot
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          mv Godot_v4.3-stable_linux.x86_64 godot
+
+      - name: Import project
+        run: ./godot --headless --path project --import || true
+
+      - name: Smoke test
+        run: ./godot --headless --path project -s res://tests/smoke_test.gd
+
+  commit:
+    needs: [build, test]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bin-*
+          path: artifacts/
+
+      - name: Copy compiled files into project/bin
+        run: |
+          mkdir -p project/bin/linux project/bin/windows project/bin/macos project/bin/web
+          cp -r artifacts/bin-linux/. project/bin/linux/
+          cp -r artifacts/bin-windows/. project/bin/windows/
+          cp -r artifacts/bin-macos/. project/bin/macos/
+          cp -r artifacts/bin-web/. project/bin/web/
+          cp -r artifacts/bin-web-threads/. project/bin/web/
+          ls -R project/bin
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f project/bin
+          if git diff --cached --quiet; then
+            echo "Compiled files unchanged."
+            exit 0
+          fi
+          git commit -m "Update compiled engine for ${GITHUB_SHA::7} [skip ci]"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1

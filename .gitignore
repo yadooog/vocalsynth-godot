@@ -1,0 +1,23 @@
+# Godot
+.godot/
+__pycache__/
+export_presets.cfg
+/android/
+
+# Build output (the copies inside project/bin/ ARE committed, by GitHub Actions)
+/build/
+*.o
+*.os
+*.obj
+*.dblite
+.sconsign*.dblite
+/src/gen/
+custom.py
+compile_commands.json
+godot-cpp/bin/
+godot-cpp/gen/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

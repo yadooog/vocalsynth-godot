@@ -1,0 +1,18 @@
+{
+  "sampleRate": 48000,
+  "blocks": 280,
+  "seed": 12345,
+  "events": [
+    {"block": 40,  "type": "tongue", "id": 1, "index": 20, "diameter": 2.6},
+    {"block": 80,  "type": "tongueMove", "id": 1, "index": 15, "diameter": 2.2},
+    {"block": 120, "type": "end", "id": 1},
+    {"block": 100, "type": "pitch", "frequency": 200, "tenseness": 0.9, "touched": true},
+    {"block": 130, "type": "touch", "id": 2, "index": 36, "diameter": 0.5},
+    {"block": 180, "type": "end", "id": 2},
+    {"block": 190, "type": "touch", "id": 3, "index": 30, "diameter": -0.5},
+    {"block": 220, "type": "end", "id": 3},
+    {"block": 230, "type": "touch", "id": 4, "index": 40, "diameter": -1.2},
+    {"block": 270, "type": "end", "id": 4},
+    {"block": 250, "type": "pitch", "frequency": 110, "tenseness": 0.4, "touched": false}
+  ]
+}

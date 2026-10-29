@@ -1,0 +1,18 @@
+[configuration]
+
+entry_symbol = "vocalsynth_library_init"
+compatibility_minimum = "4.3"
+reloadable = false
+
+[libraries]
+; These files are compiled automatically by GitHub (see .github/workflows/build.yml).
+macos.debug = "res://bin/macos/libvocalsynth.macos.template_debug.dylib"
+macos.release = "res://bin/macos/libvocalsynth.macos.template_release.dylib"
+windows.debug.x86_64 = "res://bin/windows/vocalsynth.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://bin/windows/vocalsynth.windows.template_release.x86_64.dll"
+linux.debug.x86_64 = "res://bin/linux/libvocalsynth.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://bin/linux/libvocalsynth.linux.template_release.x86_64.so"
+web.debug.threads.wasm32 = "res://bin/web/libvocalsynth.web.template_debug.wasm32.wasm"
+web.release.threads.wasm32 = "res://bin/web/libvocalsynth.web.template_release.wasm32.wasm"
+web.debug.wasm32 = "res://bin/web/libvocalsynth.web.template_debug.wasm32.nothreads.wasm"
+web.release.wasm32 = "res://bin/web/libvocalsynth.web.template_release.wasm32.nothreads.wasm"

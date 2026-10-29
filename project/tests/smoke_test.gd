@@ -1,0 +1,55 @@
+extends SceneTree
+## Run by GitHub after each build, to check the engine loads and makes sound:
+##   godot --headless --path project -s res://tests/smoke_test.gd
+
+func _initialize() -> void:
+	var ok := true
+	if not ClassDB.class_exists("PinkTrombone"):
+		printerr("FAIL: PinkTrombone class not registered")
+		quit(1)
+		return
+
+	var synth = ClassDB.instantiate("PinkTrombone")
+	synth.setup(48000)
+	var sound: PackedFloat32Array = synth.generate(48000)
+	ok = _check("open vowel", sound, 0.02) and ok
+
+	synth.set_tongue(14.0, 2.2)
+	synth.touch_start(1, 36.0, 0.5)   # "sss" constriction near the teeth
+	sound = synth.generate(24000)
+	synth.touch_end(1)
+	ok = _check("fricative", sound, 0.005) and ok
+
+	synth.touch_start(2, 40.0, -1.2)  # close the lips, open the nose: "mmm"
+	sound = synth.generate(24000)
+	synth.touch_end(2)
+	ok = _check("nasal", sound, 0.001) and ok
+
+	# The main scene should load and create its synth.
+	var main: Node = load("res://main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+	var voicebox = main.get_node("%Voicebox")
+	if voicebox.synth == null:
+		printerr("FAIL: main scene did not create a synth")
+		ok = false
+	else:
+		print("ok: main scene runs")
+
+	quit(0 if ok else 1)
+
+
+func _check(label: String, sound: PackedFloat32Array, min_rms: float) -> bool:
+	var sum := 0.0
+	for v in sound:
+		if is_nan(v) or is_inf(v):
+			printerr("FAIL: %s produced NaN/inf" % label)
+			return false
+		sum += v * v
+	var rms := sqrt(sum / sound.size())
+	if rms < min_rms or rms > 1.0:
+		printerr("FAIL: %s rms %.4f" % [label, rms])
+		return false
+	print("ok: %s rms %.4f" % [label, rms])
+	return true
