@@ -12,6 +12,12 @@ var generator_playback: AudioStreamGeneratorPlayback # web only
 @onready var pitch_pad: Control = %PitchPad
 @onready var mouth_pad: Control = %MouthPad
 @onready var size_slider: Control = %SizeSlider
+@onready var character: Node3D = %Character
+@onready var camera: Camera3D = %Camera
+@onready var character_view: Control = %CharacterView
+
+var time := 0.0
+var steering := false
 
 
 func _ready() -> void:
@@ -39,6 +45,7 @@ func _ready() -> void:
 		generator_playback = player.get_stream_playback()
 
 	voicebox.synth = synth
+	camera.look_at_from_position(Vector3(0, 2.6, 10.5), Vector3(0, 2.1, 0))
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
 
@@ -46,6 +53,77 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if generator_playback:
 		synth.fill(generator_playback)
+
+
+func _process(delta: float) -> void:
+	time += delta
+	_keyboard_walk()
+	character.update_character(delta, _face(), time)
+
+
+# What the character's face should be doing, worked out from the synth's current settings.
+func _face() -> Dictionary:
+	if synth == null:
+		return {}
+	var octaves := log(maxf(20.0, synth.frequency) / 140.0) / log(2.0)
+	var tense: float = synth.tenseness
+	var level: float = synth.get_level()
+	var talking := 1.0 if level > 0.008 else 0.0
+	var loud := clampf((level - 0.03) / 0.08, 0.0, 1.0) * talking
+	var jaw: float = synth.jaw
+	var lips: float = synth.lips
+	var shut := lips < 0.08
+	var low := clampf((synth.get_tongue_diameter() - 2.05) / (3.5 - 2.05), 0.0, 1.0)
+	var open := 0.0 if shut else clampf((jaw - 0.25) * 1.6 + 0.25 * low, 0.0, 1.0)
+	return {
+		"open": open,
+		"lips": clampf(lips / 1.4, 0.0, 1.2),
+		"jaw": jaw,
+		"shut": shut,
+		"tilt": clampf(octaves * 0.18, -0.35, 0.35),
+		"brow": clampf(octaves * 0.9, -1.0, 1.5),
+		"talking": talking,
+		"loud": loud,
+		"angry": clampf((tense - 0.7) / 0.25, 0.0, 1.0) * loud,
+		"sad": clampf((0.45 - tense) / 0.35, 0.0, 1.0) if talking > 0.5 else 0.0,
+	}
+
+
+# Click or drag in the character's area to make it walk there; arrow keys / WASD work too.
+func _on_view_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		steering = event.pressed
+		if event.pressed:
+			_walk_towards(event.position)
+	elif event is InputEventMouseMotion and steering:
+		_walk_towards(event.position)
+	elif event is InputEventScreenTouch and event.pressed:
+		_walk_towards(event.position)
+	elif event is InputEventScreenDrag:
+		_walk_towards(event.position)
+
+
+func _walk_towards(pos: Vector2) -> void:
+	var from := camera.project_ray_origin(pos)
+	var dir := camera.project_ray_normal(pos)
+	var hit = Plane(Vector3.UP, 0.0).intersects_ray(from, dir)
+	if hit != null:
+		character.walk_to(Vector3(clampf(hit.x, -1.5, 1.5), 0.0, clampf(hit.z, -1.2, 1.2)))
+
+
+func _keyboard_walk() -> void:
+	var dir := Vector3.ZERO
+	if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_A):
+		dir.x -= 1.0
+	if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
+		dir.x += 1.0
+	if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
+		dir.z -= 1.0
+	if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
+		dir.z += 1.0
+	if dir != Vector3.ZERO:
+		var p: Vector3 = character.position + dir.normalized() * 0.5
+		character.walk_to(Vector3(clampf(p.x, -1.5, 1.5), 0.0, clampf(p.z, -1.2, 1.2)))
 
 
 func _on_pitch_moved(v: Vector2) -> void:
@@ -58,6 +136,8 @@ func _on_pitch_moved(v: Vector2) -> void:
 func _on_pitch_held(on: bool) -> void:
 	if synth:
 		synth.voice_held = on
+	if on:
+		character.hop_vel = 2.4 # a little jump when you grab the pitch pad
 
 
 func _on_mouth_moved(v: Vector2) -> void:

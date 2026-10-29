@@ -50,10 +50,17 @@ func _initialize() -> void:
 		ok = false
 	else:
 		print("ok: main scene runs")
+		var character = main.get_node("%Character")
+		if character == null or character.tongue_mesh == null:
+			printerr("FAIL: character not built")
+			ok = false
+		character.walk_to(Vector3(1.0, 0, 0.5))
 		var t0: float = main.synth.get_time()
 		for i in 30:
 			await process_frame
 		print("info: audio thread advanced the synth by %.3f s" % (main.synth.get_time() - t0))
+		print("info: character walked to x=%.2f, head width %.2f height %.2f" % [character.position.x, character.head_sx, character.head_sy])
+		print("ok: character runs")
 
 	quit(0 if ok else 1)
 
