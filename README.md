@@ -31,11 +31,16 @@ You don't need a compiler: the engine files in `project/bin/` are built by GitHu
 - **voice** keeps the voice on all the time, **wobble** adds natural pitch drift,
   **hum** opens the nose ("m", "n", "ng" with the lips or tongue closed).
 - Double-click a pad or the slider to reset it.
+- **The character** (middle): its head gets wider with the lips and taller with the jaw,
+  its tongue comes out as the mouth opens, and the heavy head wobbles on a springy neck.
+  Click or drag in its area, or use the arrow keys / WASD, to make it walk and
+  watch the head and googly eyes slosh about.
 
 ## What's where
 
 | Path | What it is |
 | --- | --- |
+| `project/character/` | The character: `character.gd` (body, head shape, neck physics, googly eyes, tongue) and its two shaders. |
 | `project/` | The Godot project. `voicebox.gd` draws the tract, `xy_pad.gd` is the pads and slider, `main.gd` connects them to the synth. |
 | `project/bin/` | The compiled engine for Mac, Windows, Linux and web (made by GitHub, don't edit). |
 | `src/synth/` | The voice engine in plain C++ (no Godot code), ported file by file from pink-trombone-mod. |
