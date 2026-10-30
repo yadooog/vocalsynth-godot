@@ -51,9 +51,9 @@ const TONGUE_GRAVITY := 8.0
 const TONGUE_DAMPING := 0.996
 const TONGUE_STIFFNESS := 0.035
 const TONGUE_ROOT_STIFFNESS := 0.3
-const TONGUE_FLAP := 14.0
-const TONGUE_WRITHE := 3.5
-const TONGUE_TWITCH := 0.4
+const TONGUE_FLAP := 3.0
+const TONGUE_WRITHE := 1.0
+const TONGUE_TWITCH := 0.0
 const TONGUE_LENGTH_SPRING := 120.0
 const TONGUE_LENGTH_DAMPING := 9.0
 const TONGUE_BULGE := 0.35
@@ -437,7 +437,7 @@ func update_character(dt: float, face: Dictionary, time: float) -> void:
 	var want_sy: float = lerpf(0.8, 1.3, size01) * (1.0 + 0.45 * djaw - 0.1 * dlips)
 	# Opening or closing the mouth bounces the head.
 	var open_now: float = face.get("open", 0.0)
-	sag_vel += (open_now - last_open) * 6.0
+	sag_vel += (open_now - last_open) * 9.0
 	last_open = open_now
 	head_sx_v += ((want_sx - head_sx) * 220.0 - head_sx_v * 14.0) * dt
 	head_sy_v += ((want_sy - head_sy) * 220.0 - head_sy_v * 14.0) * dt
@@ -654,7 +654,7 @@ func _update_tongue(dt: float, face: Dictionary) -> void:
 			p += vv
 			p.y -= TONGUE_GRAVITY * h2
 			var tipward := float(i) / n
-			var wr := TONGUE_WRITHE * out01 * (0.6 + 0.8 * talking) * tipward
+			var wr := TONGUE_WRITHE * out01 * (0.5 + 0.2 * talking) * tipward
 			var sw := sin(flap_time * 5.3 - i * 0.55) + 0.6 * sin(flap_time * 2.1 + i * 0.3)
 			var uw := sin(flap_time * 3.7 - i * 0.45 + 1.3)
 			p += side * (sw * wr * h2)
