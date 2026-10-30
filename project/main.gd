@@ -48,6 +48,8 @@ func _ready() -> void:
 		synth.tongue_full_range = true # the tongue can go anywhere in its slice, not just the original triangle
 	voicebox.synth = synth
 	synth.auto_wobble = true
+	synth.always_voice = false # sound only while touching, holding or playing
+	synth.voice_held = false
 	voicebox.held.connect(_on_interact)
 	mouth_pad.held.connect(_on_interact)
 	size_slider.held.connect(_on_interact)
