@@ -59,6 +59,21 @@ func _initialize() -> void:
 			printerr("FAIL: character not built")
 			ok = false
 		character.walk_to(Vector3(1.0, 0, 0.5))
+		# Timeline: two keys, then play across them.
+		var timeline = main.get_node("%Timeline")
+		timeline.add_key(main.capture_frame(), 0.0)
+		var f2: Dictionary = main.capture_frame()
+		f2["px"] = 0.9
+		timeline.add_key(f2, 1.0)
+		var mid: Dictionary = timeline.sample(0.5)
+		if timeline.keys.size() != 2 or absf(mid["px"] - (main.capture_frame()["px"] + 0.9) * 0.5) > 0.2:
+			printerr("FAIL: timeline keys or blending wrong")
+			ok = false
+		timeline.play()
+		for i in 10:
+			await process_frame
+		timeline.stop()
+		print("ok: timeline plays")
 		var t0: float = main.synth.get_time()
 		for i in 30:
 			await process_frame

@@ -14,6 +14,8 @@ var synth # PinkTrombone (untyped so this script still loads if the engine is mi
 @onready var character: Node3D = %Character
 @onready var camera: Camera3D = %Camera
 @onready var character_view: Control = %CharacterView
+@onready var timeline: Control = %Timeline
+@onready var always_voice_button: Button = %AlwaysVoice
 
 var time := 0.0
 var steering := false
@@ -44,6 +46,16 @@ func _ready() -> void:
 	if "tongue_full_range" in synth:
 		synth.tongue_full_range = true # the tongue can go anywhere in its slice, not just the original triangle
 	voicebox.synth = synth
+	timeline.capture = Callable(self, "capture_frame")
+	timeline.frame_changed.connect(apply_frame)
+	timeline.playing_changed.connect(_on_playing_changed)
+	timeline.recording_changed.connect(func(on): %RecButton.set_pressed_no_signal(on))
+	%RecButton.toggled.connect(func(on): timeline.start_recording() if on else timeline.stop())
+	%PlayButton.toggled.connect(func(on): timeline.play() if on else timeline.stop())
+	%LoopButton.toggled.connect(func(on): timeline.looping = on)
+	%AddKey.pressed.connect(func(): timeline.add_key(capture_frame()))
+	%DeleteKey.pressed.connect(timeline.delete_selected)
+	%ClearKeys.pressed.connect(timeline.clear)
 	camera.look_at_from_position(Vector3(0, 2.5, 9.0), Vector3(0, 2.0, 0))
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
@@ -159,3 +171,40 @@ func _on_pitch_wobble_toggled(on: bool) -> void:
 func _on_hum_toggled(on: bool) -> void:
 	if synth:
 		synth.velum_open = on
+
+
+# ---------------------------------------------------------------- timeline
+
+# The controls as a frame (one pose) for the timeline to store.
+func capture_frame() -> Dictionary:
+	return {
+		"px": pitch_pad.value.x, "py": pitch_pad.value.y,
+		"mx": mouth_pad.value.x, "my": mouth_pad.value.y,
+		"sz": size_slider.value.y,
+		"ti": synth.get_tongue_index(), "td": synth.get_tongue_diameter(),
+		"voiced": synth.voice_held or synth.always_voice,
+	}
+
+
+# Puts a frame back onto the controls, which drives the synth and the character.
+func apply_frame(f: Dictionary) -> void:
+	if synth == null or f.is_empty():
+		return
+	pitch_pad.set_value(Vector2(f["px"], f["py"]))
+	mouth_pad.set_value(Vector2(f["mx"], f["my"]))
+	size_slider.set_value(Vector2(0.5, f["sz"]))
+	synth.set_tongue(f["ti"], f["td"])
+	if timeline.playing:
+		synth.voice_held = f["voiced"]
+
+
+# While a phrase plays, the key's own voicing decides when it sounds.
+func _on_playing_changed(on: bool) -> void:
+	%PlayButton.set_pressed_no_signal(on)
+	if synth == null:
+		return
+	if on:
+		synth.always_voice = false
+	else:
+		synth.always_voice = always_voice_button.button_pressed
+		synth.voice_held = false
