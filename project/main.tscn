@@ -142,9 +142,9 @@ unique_name_in_owner = true
 script = ExtResource("4")
 
 [connection signal="gui_input" from="Layout/CharacterView" to="." method="_on_view_input"]
-[connection signal="moved" from="Layout/Left/Pads/PitchPad" to="." method="_on_pitch_moved"]
-[connection signal="held" from="Layout/Left/Pads/PitchPad" to="." method="_on_pitch_held"]
-[connection signal="moved" from="Layout/Left/Pads/MouthPad" to="." method="_on_mouth_moved"]
+[connection signal="moved" from="Layout/Left/Column/Pads/PitchPad" to="." method="_on_pitch_moved"]
+[connection signal="held" from="Layout/Left/Column/Pads/PitchPad" to="." method="_on_pitch_held"]
+[connection signal="moved" from="Layout/Left/Column/Pads/MouthPad" to="." method="_on_mouth_moved"]
 [connection signal="moved" from="Layout/Left/Side/SizeSlider" to="." method="_on_size_moved"]
 [connection signal="toggled" from="Layout/Left/Column/Buttons/AlwaysVoice" to="." method="_on_always_voice_toggled"]
 [connection signal="toggled" from="Layout/Left/Column/Buttons/PitchWobble" to="." method="_on_pitch_wobble_toggled"]

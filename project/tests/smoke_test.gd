@@ -50,6 +50,10 @@ func _initialize() -> void:
 		ok = false
 	else:
 		print("ok: main scene runs")
+		for pad_name in ["PitchPad", "MouthPad", "SizeSlider"]:
+			if main.get_node("%" + pad_name).moved.get_connections().is_empty():
+				printerr("FAIL: %s is not connected to anything" % pad_name)
+				ok = false
 		var character = main.get_node("%Character")
 		if character == null or character.tongue_mesh == null:
 			printerr("FAIL: character not built")

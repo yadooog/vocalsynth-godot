@@ -18,7 +18,7 @@ const INNER_TONGUE_RADIUS := 2.05
 const OUTER_TONGUE_RADIUS := 3.5
 
 # Part of the original 600 x 600 canvas that the tract covers.
-const VIEW := Rect2(10, 10, 340, 340)
+const VIEW := Rect2(28, 28, 304, 304)
 const MOUSE_ID := 1000
 const SHOW_ZONES := true # temporary overlay: outlines of where each part of the tract is mapped
 
