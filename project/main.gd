@@ -143,7 +143,7 @@ func _on_mouth_moved(v: Vector2) -> void:
 
 func _on_size_moved(v: Vector2) -> void:
 	if synth:
-		synth.voice_size = 0.5 * pow(4.0, v.x) # 0.5 (tiny) .. 1 (middle) .. 2 (giant)
+		synth.voice_size = 0.5 * pow(4.0, 1.0 - v.y) # slider up = giant (2), middle = 1, down = tiny (0.5)
 
 
 func _on_always_voice_toggled(on: bool) -> void:

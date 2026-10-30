@@ -27,27 +27,30 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 24
 
-[node name="Left" type="VBoxContainer" parent="Layout"]
+[node name="Left" type="HBoxContainer" parent="Layout"]
 custom_minimum_size = Vector2(440, 0)
-layout_mode = 2
-theme_override_constants/separation = 14
-
-[node name="Voicebox" type="Control" parent="Layout/Left"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 330)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-mouse_filter = 0
-script = ExtResource("2")
-
-[node name="Pads" type="HBoxContainer" parent="Layout/Left"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="PitchPad" type="Control" parent="Layout/Left/Pads"]
+[node name="Column" type="VBoxContainer" parent="Layout/Left"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="Voicebox" type="Control" parent="Layout/Left/Column"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 170)
+custom_minimum_size = Vector2(0, 388)
+layout_mode = 2
+mouse_filter = 0
+script = ExtResource("2")
+
+[node name="Pads" type="HBoxContainer" parent="Layout/Left/Column"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PitchPad" type="Control" parent="Layout/Left/Column/Pads"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 0
@@ -56,9 +59,9 @@ caption = "pitch"
 value = Vector2(0.34, 0.26)
 default_value = Vector2(0.34, 0.26)
 
-[node name="MouthPad" type="Control" parent="Layout/Left/Pads"]
+[node name="MouthPad" type="Control" parent="Layout/Left/Column/Pads"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 170)
+custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 0
@@ -67,20 +70,11 @@ caption = "mouth"
 value = Vector2(0.714, 0.5)
 default_value = Vector2(0.714, 0.5)
 
-[node name="SizeSlider" type="Control" parent="Layout/Left"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-mouse_filter = 0
-script = ExtResource("3")
-caption = "size"
-horizontal_only = true
-
-[node name="Buttons" type="HBoxContainer" parent="Layout/Left"]
+[node name="Buttons" type="HBoxContainer" parent="Layout/Left/Column"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="AlwaysVoice" type="Button" parent="Layout/Left/Buttons"]
+[node name="AlwaysVoice" type="Button" parent="Layout/Left/Column/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
@@ -88,7 +82,7 @@ toggle_mode = true
 button_pressed = true
 text = "voice"
 
-[node name="PitchWobble" type="Button" parent="Layout/Left/Buttons"]
+[node name="PitchWobble" type="Button" parent="Layout/Left/Column/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
@@ -96,12 +90,32 @@ toggle_mode = true
 button_pressed = true
 text = "wobble"
 
-[node name="Hum" type="Button" parent="Layout/Left/Buttons"]
+[node name="Hum" type="Button" parent="Layout/Left/Column/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
 toggle_mode = true
 text = "hum"
+
+[node name="Side" type="VBoxContainer" parent="Layout/Left"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="Spacer" type="Control" parent="Layout/Left/Side"]
+custom_minimum_size = Vector2(0, 190)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="SizeSlider" type="Control" parent="Layout/Left/Side"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 0
+script = ExtResource("3")
+caption = "size"
+vertical_only = true
 
 [node name="CharacterView" type="SubViewportContainer" parent="Layout"]
 unique_name_in_owner = true
@@ -130,7 +144,7 @@ script = ExtResource("4")
 [connection signal="moved" from="Layout/Left/Pads/PitchPad" to="." method="_on_pitch_moved"]
 [connection signal="held" from="Layout/Left/Pads/PitchPad" to="." method="_on_pitch_held"]
 [connection signal="moved" from="Layout/Left/Pads/MouthPad" to="." method="_on_mouth_moved"]
-[connection signal="moved" from="Layout/Left/SizeSlider" to="." method="_on_size_moved"]
-[connection signal="toggled" from="Layout/Left/Buttons/AlwaysVoice" to="." method="_on_always_voice_toggled"]
-[connection signal="toggled" from="Layout/Left/Buttons/PitchWobble" to="." method="_on_pitch_wobble_toggled"]
-[connection signal="toggled" from="Layout/Left/Buttons/Hum" to="." method="_on_hum_toggled"]
+[connection signal="moved" from="Layout/Left/Side/SizeSlider" to="." method="_on_size_moved"]
+[connection signal="toggled" from="Layout/Left/Column/Buttons/AlwaysVoice" to="." method="_on_always_voice_toggled"]
+[connection signal="toggled" from="Layout/Left/Column/Buttons/PitchWobble" to="." method="_on_pitch_wobble_toggled"]
+[connection signal="toggled" from="Layout/Left/Column/Buttons/Hum" to="." method="_on_hum_toggled"]

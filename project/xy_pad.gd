@@ -12,6 +12,7 @@ const PAD := Color(0.925, 0.91, 0.875)
 @export var value := Vector2(0.5, 0.5)
 @export var default_value := Vector2(0.5, 0.5)
 @export var horizontal_only := false
+@export var vertical_only := false
 ## Number of vertical guide lines, and which of them are drawn darker.
 @export var lines := 0
 @export var marked_lines := PackedInt32Array()
@@ -63,11 +64,26 @@ func _drag(pos: Vector2) -> void:
 	var v := pos / size
 	if horizontal_only:
 		v.y = value.y
+	if vertical_only:
+		v.x = value.x
 	set_value(v)
 
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
+	if vertical_only:
+		var x := size.x * 0.5
+		draw_line(Vector2(x, 0), Vector2(x, size.y), INK, 1.0)
+		var mid := default_value.y * size.y
+		draw_line(Vector2(x - 5, mid), Vector2(x + 5, mid), Color(INK, 0.4), 1.0)
+		var r := Rect2(Vector2(x - 9, value.y * size.y - 6), Vector2(18, 12))
+		draw_rect(r, PAD)
+		draw_rect(r, INK, false, 1.5)
+		if caption != "":
+			draw_set_transform(Vector2(x - 8, size.y - 4), -PI / 2.0)
+			draw_string(font, Vector2.ZERO, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(INK, 0.5))
+			draw_set_transform(Vector2.ZERO)
+		return
 	if horizontal_only:
 		var y := size.y * 0.5
 		draw_line(Vector2(0, y), Vector2(size.x, y), INK, 1.0)
