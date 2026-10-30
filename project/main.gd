@@ -60,6 +60,19 @@ func _ready() -> void:
 	for pad in [pitch_pad, mouth_pad, size_slider]:
 		pad.user_edited.connect(_on_user_edit)
 	voicebox.tongue_edited.connect(_on_user_edit)
+	# Which lanes the timeline shows.
+	var lane_bar := HBoxContainer.new()
+	lane_bar.add_theme_constant_override("separation", 6)
+	timeline.get_parent().add_child(lane_bar)
+	timeline.get_parent().move_child(lane_bar, timeline.get_index())
+	for lane in timeline.LANES:
+		var b := Button.new()
+		b.text = lane["label"]
+		b.toggle_mode = true
+		b.focus_mode = Control.FOCUS_NONE
+		b.button_pressed = timeline.lane_ids.has(lane["id"])
+		b.toggled.connect(timeline.set_lane.bind(lane["id"]))
+		lane_bar.add_child(b)
 	%VoicedKey.pressed.connect(func(): timeline.set_selected_voiced(timeline.selected == null or not timeline.selected["f"]["voiced"]))
 	timeline.capture = Callable(self, "capture_frame")
 	timeline.frame_changed.connect(apply_frame)

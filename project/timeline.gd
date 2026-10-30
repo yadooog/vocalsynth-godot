@@ -21,11 +21,11 @@ const PAD_COLOR := Color(0.925, 0.91, 0.875)
 const DURATION := 4.0
 const BEAT := 0.5            # 120 bpm
 const SNAP := 0.125          # a 16th note
-const RULER := 22.0
-const KEYS_ROW := 26.0
-const LANE_H := 34.0
+const RULER := 26.0
+const KEYS_ROW := 32.0
+const LANE_H := 46.0
 const SIDE := 14.0           # padding so keys at 0 s and 4 s can be grabbed
-const HIT := 12.0
+const HIT := 14.0
 const RECORD_STEP := 1.0 / 30.0
 const SIMPLIFY_TOLERANCE := 0.05
 const MAX_KEYS := 32
@@ -41,6 +41,10 @@ const LANES := [
 	{"id": "size", "label": "size", "field": "sz", "lo": 0.0, "hi": 1.0, "flip": true},
 ]
 const NUMBER_FIELDS := ["px", "py", "mx", "my", "sz", "ti", "td"]
+
+# Which lanes are showing (ids); the others are hidden to save room.
+var lane_ids: Array = ["pitch", "jaw", "tfront"]
+var _lanes: Array = []
 
 var capture := Callable()    # () -> Dictionary, set by main.gd
 
@@ -59,8 +63,22 @@ var _grab_dx := 0.0
 
 
 func _ready() -> void:
-	custom_minimum_size.y = RULER + KEYS_ROW + LANES.size() * LANE_H + 4.0
+	_refresh_lanes()
 	mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+func set_lane(id: String, on: bool) -> void:
+	if on and not lane_ids.has(id):
+		lane_ids.append(id)
+	elif not on:
+		lane_ids.erase(id)
+	_refresh_lanes()
+
+
+func _refresh_lanes() -> void:
+	_lanes = LANES.filter(func(l): return lane_ids.has(l["id"]))
+	custom_minimum_size.y = RULER + KEYS_ROW + _lanes.size() * LANE_H + 4.0
+	queue_redraw()
 
 
 # ---------------------------------------------------------------- the phrase
@@ -309,7 +327,7 @@ func _lane_top(i: int) -> float:
 
 
 func _lane_y(i: int, f: Dictionary) -> float:
-	var lane: Dictionary = LANES[i]
+	var lane: Dictionary = _lanes[i]
 	var u: float = (f[lane["field"]] - lane["lo"]) / (lane["hi"] - lane["lo"])
 	if lane["flip"]:
 		u = 1.0 - u
@@ -317,7 +335,7 @@ func _lane_y(i: int, f: Dictionary) -> float:
 
 
 func _value_at(i: int, y: float) -> float:
-	var lane: Dictionary = LANES[i]
+	var lane: Dictionary = _lanes[i]
 	var u := 1.0 - clampf((y - _lane_top(i) - 5.0) / (LANE_H - 10.0), 0.0, 1.0)
 	if lane["flip"]:
 		u = 1.0 - u
@@ -377,7 +395,7 @@ func _press(pos: Vector2, double: bool) -> void:
 			_start_scrub(pos)
 		return
 	var lane := int((pos.y - RULER - KEYS_ROW) / LANE_H)
-	if lane >= 0 and lane < LANES.size():
+	if lane >= 0 and lane < _lanes.size():
 		for k in keys:
 			if absf(_x_of(k["t"]) - pos.x) <= HIT and absf(_lane_y(lane, k["f"]) - pos.y) <= HIT:
 				_select(k)
@@ -425,7 +443,7 @@ func _move(pos: Vector2) -> void:
 				t = selected["t"]
 		"value":
 			if selected != null:
-				var lane: Dictionary = LANES[_drag_lane]
+				var lane: Dictionary = _lanes[_drag_lane]
 				selected["f"][lane["field"]] = _value_at(_drag_lane, pos.y)
 				frame_changed.emit(selected["f"])
 	queue_redraw()
@@ -436,7 +454,7 @@ func _move(pos: Vector2) -> void:
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	var w := size.x
-	var h := RULER + KEYS_ROW + LANES.size() * LANE_H
+	var h := RULER + KEYS_ROW + _lanes.size() * LANE_H
 	draw_rect(Rect2(0, 0, w, h), PAD_COLOR)
 
 	# beat grid (a darker line each bar), and the ruler
@@ -446,16 +464,16 @@ func _draw() -> void:
 		var bar := b % 4 == 0
 		draw_line(Vector2(x, RULER - (10.0 if bar else 5.0)), Vector2(x, h), Color(INK, 0.28 if bar else 0.1), 1.0)
 		if bar:
-			draw_string(font, Vector2(x + 3, 11), "%d" % (b / 4 + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(INK, 0.5))
+			draw_string(font, Vector2(x + 4, 15), "%d" % (b / 4 + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(INK, 0.6))
 	draw_line(Vector2(0, RULER), Vector2(w, RULER), Color(INK, 0.5), 1.0)
 	draw_line(Vector2(0, RULER + KEYS_ROW), Vector2(w, RULER + KEYS_ROW), Color(INK, 0.3), 1.0)
 
 	# lanes: the curve playback follows, and a dot per key
-	for i in LANES.size():
+	for i in _lanes.size():
 		var top := _lane_top(i)
 		if i > 0:
 			draw_line(Vector2(0, top), Vector2(w, top), Color(INK, 0.15), 1.0)
-		draw_string(font, Vector2(6, top + 12), LANES[i]["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(INK, 0.45))
+		draw_string(font, Vector2(6, top + 12), _lanes[i]["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(INK, 0.55))
 		if keys.is_empty():
 			continue
 		var pts := PackedVector2Array()
@@ -463,17 +481,17 @@ func _draw() -> void:
 		for s in steps + 1:
 			var time := DURATION * s / steps
 			pts.append(Vector2(_x_of(time), _lane_y(i, sample(time))))
-		draw_polyline(pts, Color(INK, 0.75), 1.5, true)
+		draw_polyline(pts, Color(INK, 0.8), 2.5, true)
 		for k in keys:
 			var p := Vector2(_x_of(k["t"]), _lane_y(i, k["f"]))
-			draw_circle(p, 4.0, INK if k == selected else PAPER)
-			draw_arc(p, 4.0, 0, TAU, 16, INK, 1.2, true)
+			draw_circle(p, 6.0, INK if k == selected else PAPER)
+			draw_arc(p, 6.0, 0, TAU, 16, INK, 1.8, true)
 
 	# keys row: a diamond per key, filled when voiced
 	var cy := RULER + KEYS_ROW * 0.5
 	for k in keys:
 		var cx := _x_of(k["t"])
-		var r := 8.0 if k == selected else 6.5
+		var r := 11.0 if k == selected else 9.0
 		var d := PackedVector2Array([Vector2(cx, cy - r), Vector2(cx + r, cy), Vector2(cx, cy + r), Vector2(cx - r, cy)])
 		draw_colored_polygon(d, INK if k["f"]["voiced"] else PAPER)
 		d.append(d[0])
