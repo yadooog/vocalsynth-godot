@@ -130,6 +130,7 @@ unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
+tooltip_text = "record (R)"
 text = "rec"
 
 [node name="PlayButton" type="Button" parent="Layout/Right/Toolbar"]
@@ -137,6 +138,7 @@ unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
+tooltip_text = "play (space)"
 text = "play"
 
 [node name="HoldButton" type="Button" parent="Layout/Right/Toolbar"]
@@ -144,6 +146,7 @@ unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
+tooltip_text = "hold the sound (H)"
 text = "hold"
 
 [node name="LoopButton" type="Button" parent="Layout/Right/Toolbar"]
@@ -152,52 +155,36 @@ layout_mode = 2
 focus_mode = 0
 toggle_mode = true
 button_pressed = true
+tooltip_text = "loop (L)"
 text = "loop"
-
-[node name="EaseLinear" type="Button" parent="Layout/Right/Toolbar"]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-toggle_mode = true
-text = "key: linear"
 
 [node name="EaseSmooth" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
-text = "key: smooth"
-
-[node name="EaseHold" type="Button" parent="Layout/Right/Toolbar"]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-toggle_mode = true
-text = "key: hold"
-
-[node name="VoicedKey" type="Button" parent="Layout/Right/Toolbar"]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-toggle_mode = true
-text = "key: voiced"
+tooltip_text = "ease in and out of this key"
+text = "smooth"
 
 [node name="ClearClosures" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
+tooltip_text = "remove this key's squeezes"
 text = "clear closures"
 
 [node name="AddKey" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
+tooltip_text = "add a key (K)"
 text = "+ key"
 
 [node name="DeleteKey" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
+tooltip_text = "delete key (Delete)"
 text = "delete"
 
 [node name="ClearKeys" type="Button" parent="Layout/Right/Toolbar"]

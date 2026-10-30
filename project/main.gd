@@ -55,8 +55,7 @@ func _ready() -> void:
 	size_slider.held.connect(_on_interact)
 	timeline.scrub_ended.connect(_update_voicing)
 	%HoldButton.toggled.connect(func(on): hold_on = on; _update_voicing())
-	for kind in ["Linear", "Smooth", "Hold"]:
-		get_node("%Ease" + kind).pressed.connect(func(): timeline.set_selected_ease(kind.to_lower()))
+	%EaseSmooth.toggled.connect(func(on): timeline.set_selected_ease("smooth" if on else "linear"))
 	voicebox.timeline = timeline
 	pitch_pad.timeline = timeline
 	pitch_pad.field_x = "px"
@@ -88,7 +87,6 @@ func _ready() -> void:
 		b.toggled.connect(timeline.set_lane.bind(lane["id"]))
 		lane_bar.add_child(b)
 	%ClearClosures.pressed.connect(func(): _closure_edit(timeline.clear_closures))
-	%VoicedKey.pressed.connect(func(): timeline.set_selected_voiced(timeline.selected == null or not timeline.selected["f"]["voiced"]))
 	timeline.capture = Callable(self, "capture_frame")
 	timeline.frame_changed.connect(apply_frame)
 	timeline.playing_changed.connect(_on_playing_changed)
@@ -107,9 +105,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	time += delta
 	var sel = timeline.selected
-	for kind in ["Linear", "Smooth", "Hold"]:
-		get_node("%Ease" + kind).set_pressed_no_signal(sel != null and sel["ease"] == kind.to_lower())
-	%VoicedKey.set_pressed_no_signal(sel != null and sel["f"]["voiced"])
+	%EaseSmooth.set_pressed_no_signal(sel != null and sel["ease"] == "smooth")
 	_keyboard_walk()
 	character.update_character(delta, _face(), time)
 
