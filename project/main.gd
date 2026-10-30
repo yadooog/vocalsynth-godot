@@ -60,6 +60,9 @@ func _ready() -> void:
 	for pad in [pitch_pad, mouth_pad, size_slider]:
 		pad.user_edited.connect(_on_user_edit)
 	voicebox.tongue_edited.connect(_on_user_edit)
+	voicebox.closure_pressed.connect(func(id, i, d): _closure_edit(func(): timeline.closure_press(id, i, d)))
+	voicebox.closure_moved.connect(func(id, i, d): _closure_edit(func(): timeline.closure_move(id, i, d)))
+	voicebox.closure_released.connect(func(id, on): _closure_edit(func(): timeline.closure_release(id, on)))
 	# Which lanes the timeline shows.
 	var lane_bar := HBoxContainer.new()
 	lane_bar.add_theme_constant_override("separation", 6)
@@ -213,6 +216,7 @@ func capture_frame() -> Dictionary:
 		"sz": size_slider.value.y,
 		"ti": synth.get_tongue_index(), "td": synth.get_tongue_diameter(),
 		"voiced": synth.voice_held or synth.always_voice,
+		"cs": _current_closures(),
 	}
 
 
@@ -224,6 +228,7 @@ func apply_frame(f: Dictionary) -> void:
 	mouth_pad.set_value(Vector2(f["mx"], f["my"]))
 	size_slider.set_value(Vector2(0.5, f["sz"]))
 	synth.set_tongue(f["ti"], f["td"])
+	voicebox.set_closures(f.get("cs", []))
 	if timeline.playing:
 		synth.voice_held = f["voiced"]
 
@@ -231,6 +236,19 @@ func apply_frame(f: Dictionary) -> void:
 func _on_user_edit() -> void:
 	if timeline.selected != null and not timeline.playing and not timeline.recording:
 		timeline.update_selected(capture_frame())
+
+
+# Closures held by fingers now, or else those the current pose is holding.
+func _current_closures() -> Array:
+	var held: Array = voicebox.active_closures()
+	return held if not held.is_empty() else voicebox.applied_closures.duplicate(true)
+
+
+# Editing closures with a key selected changes that key, and the key's closures stay held.
+func _closure_edit(edit: Callable) -> void:
+	if timeline.selected != null and not timeline.playing and not timeline.recording:
+		edit.call()
+		voicebox.set_closures(timeline.closures_of_selected())
 
 
 # While a phrase plays, the key's own voicing decides when it sounds.
@@ -243,3 +261,4 @@ func _on_playing_changed(on: bool) -> void:
 	else:
 		synth.always_voice = always_voice_button.button_pressed
 		synth.voice_held = false
+		voicebox.set_closures([])

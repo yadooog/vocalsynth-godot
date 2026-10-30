@@ -37,6 +37,9 @@ var tongue_upper := 29.0
 var tongue_centre := 20.5
 
 signal tongue_edited
+signal closure_pressed(id: int, index: float, diameter: float)
+signal closure_moved(id: int, index: float, diameter: float)
+signal closure_released(id: int, on_tract: bool)
 
 var timeline: Control = null # shows the phrase's tongue motion when set
 
@@ -97,6 +100,44 @@ func tract_diameter(p: Vector2) -> float:
 	return (RADIUS - p.distance_to(ORIGIN)) / SCALE
 
 
+# A closure only does something on the tract itself.
+func _on_tract(p: Vector2) -> bool:
+	var i := tract_index(p)
+	var d := tract_diameter(p)
+	return i >= 2 and i <= n and d < 2.9 and d > -1.65
+
+
+# The closures being held by fingers right now (not the tongue), as [{i, d}].
+func active_closures() -> Array:
+	var out: Array = []
+	for id in touches:
+		if id != tongue_touch and _on_tract(touches[id]) and out.size() < 2:
+			out.append({"i": snapped(tract_index(touches[id]), 0.01), "d": snapped(tract_diameter(touches[id]), 0.001)})
+	return out
+
+
+# Holds the given closures on the synth with touches of their own (used when a key or the
+# playing phrase has closures); an empty list lets go of them.
+var applied_closures: Array = []
+var _frame_touch := [false, false]
+
+func set_closures(cs: Array) -> void:
+	if synth == null:
+		return
+	applied_closures = cs.duplicate(true)
+	for slot in 2:
+		var id := 3000 + slot
+		if slot < cs.size():
+			if _frame_touch[slot]:
+				synth.touch_move(id, cs[slot]["i"], cs[slot]["d"])
+			else:
+				synth.touch_start(id, cs[slot]["i"], cs[slot]["d"])
+				_frame_touch[slot] = true
+		elif _frame_touch[slot]:
+			synth.touch_end(id)
+			_frame_touch[slot] = false
+
+
 # ---------------------------------------------------------------- input
 
 func _gui_input(event: InputEvent) -> void:
@@ -133,6 +174,8 @@ func _press(id: int, p: Vector2) -> void:
 		tongue_touch = id
 		synth.set_tongue(index, diameter)
 		tongue_edited.emit()
+	if id != tongue_touch:
+		closure_pressed.emit(id, index, diameter)
 
 
 func _drag(id: int, p: Vector2) -> void:
@@ -143,9 +186,13 @@ func _drag(id: int, p: Vector2) -> void:
 	if id == tongue_touch:
 		synth.set_tongue(index, diameter)
 		tongue_edited.emit()
+	else:
+		closure_moved.emit(id, index, diameter)
 
 
 func _release(id: int) -> void:
+	if id != tongue_touch and touches.has(id):
+		closure_released.emit(id, _on_tract(touches[id]))
 	touches.erase(id)
 	synth.touch_end(id)
 	if id == tongue_touch:
@@ -163,6 +210,7 @@ func _draw() -> void:
 	_draw_tract()
 	if SHOW_ZONES:
 		_draw_zones()
+	Motion.draw_closures(self, timeline, func(v): return polar(v.x, v.y))
 	Motion.draw(self, timeline, "ti", "td", func(v): return polar(v.x, v.y))
 
 

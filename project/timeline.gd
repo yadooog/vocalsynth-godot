@@ -111,6 +111,16 @@ func _blend(a: Dictionary, b: Dictionary, k: float) -> Dictionary:
 	var out := a.duplicate()
 	for field in NUMBER_FIELDS:
 		out[field] = lerpf(a[field], b[field], k)
+	# A closure blends when both keys have it; otherwise it stays as it was until the next key.
+	var ca: Array = a.get("cs", [])
+	var cb: Array = b.get("cs", [])
+	var cs: Array = []
+	for i in ca.size():
+		if i < cb.size():
+			cs.append({"i": lerpf(ca[i]["i"], cb[i]["i"], k), "d": lerpf(ca[i]["d"], cb[i]["d"], k)})
+		else:
+			cs.append(ca[i].duplicate())
+	out["cs"] = cs
 	return out # voicing switches at the next key
 
 
@@ -135,6 +145,78 @@ func paths(fx: String, fy: String, voiced_only := false) -> Array:
 	if run.size() > 1:
 		runs.append(run)
 	return runs
+
+
+# Closures (squeezes of the tract, up to two per key). Paths and key points for one slot.
+func closure_paths(slot: int) -> Array:
+	var runs: Array = []
+	if keys.is_empty():
+		return runs
+	var t0: float = keys[0]["t"]
+	var t1: float = keys[keys.size() - 1]["t"]
+	var steps := maxi(1, ceili((t1 - t0) * 40.0))
+	var run: Array = []
+	for i in steps + 1:
+		var cs: Array = sample(t0 + (t1 - t0) * i / steps)["cs"]
+		if slot < cs.size():
+			run.append(Vector2(cs[slot]["i"], cs[slot]["d"]))
+		else:
+			if run.size() > 1:
+				runs.append(run)
+			run = []
+	if run.size() > 1:
+		runs.append(run)
+	return runs
+
+
+const MAX_CLOSURES := 2
+var _slot_of := {} # touch id -> closure slot being edited
+
+
+# Dragging on the tract with a key selected edits that key's closures: pressing near one moves
+# it, elsewhere adds one (up to two), and after that moves the nearest. Let go off the tract to remove.
+func closure_press(id: int, index: float, diameter: float) -> void:
+	if selected == null:
+		return
+	var cs: Array = selected["f"]["cs"]
+	var nearest := -1
+	for i in cs.size():
+		if nearest < 0 or absf(cs[i]["i"] - index) < absf(cs[nearest]["i"] - index):
+			nearest = i
+	var near := nearest >= 0 and absf(cs[nearest]["i"] - index) < 4.0
+	var slot := nearest
+	if not near and cs.size() < MAX_CLOSURES:
+		cs.append({"i": index, "d": diameter})
+		slot = cs.size() - 1
+	_slot_of[id] = slot
+	closure_move(id, index, diameter)
+
+
+func closure_move(id: int, index: float, diameter: float) -> void:
+	if selected == null or not _slot_of.has(id):
+		return
+	var cs: Array = selected["f"]["cs"]
+	var slot: int = _slot_of[id]
+	if slot >= 0 and slot < cs.size():
+		cs[slot] = {"i": snapped(index, 0.01), "d": snapped(diameter, 0.001)}
+	queue_redraw()
+
+
+func closure_release(id: int, on_tract: bool) -> void:
+	if selected != null and _slot_of.has(id):
+		var cs: Array = selected["f"]["cs"]
+		var slot: int = _slot_of[id]
+		if not on_tract and slot >= 0 and slot < cs.size():
+			cs.remove_at(slot)
+			for other in _slot_of:
+				if _slot_of[other] > slot:
+					_slot_of[other] -= 1
+	_slot_of.erase(id)
+	queue_redraw()
+
+
+func closures_of_selected() -> Array:
+	return [] if selected == null else selected["f"]["cs"]
 
 
 # The selected key takes on the controls' current values (its voicing stays as it was).
@@ -162,11 +244,11 @@ func add_key(frame: Dictionary, at: float = -1.0) -> void:
 	at = snapped(clampf(at, 0.0, DURATION), 0.001)
 	for k in keys:
 		if absf(k["t"] - at) < 0.02: # replace the pose of a key that is already there
-			k["f"] = frame.duplicate()
+			k["f"] = frame.duplicate(true)
 			selected = k
 			queue_redraw()
 			return
-	var key := {"t": at, "ease": "linear", "f": frame.duplicate()}
+	var key := {"t": at, "ease": "linear", "f": frame.duplicate(true)}
 	keys.append(key)
 	_sort_keys()
 	selected = key
@@ -274,7 +356,7 @@ func _rdp(all: Array, tol: float) -> Array:
 	keep[all.size() - 1] = 1
 	var start := 0
 	for i in range(1, all.size()):
-		if all[i]["f"]["voiced"] != all[i - 1]["f"]["voiced"]:
+		if all[i]["f"]["voiced"] != all[i - 1]["f"]["voiced"] or all[i]["f"]["cs"].size() != all[i - 1]["f"]["cs"].size():
 			keep[i - 1] = 1
 			keep[i] = 1
 			_mark(all, start, i - 1, tol, keep)
@@ -309,6 +391,12 @@ func _distance(a: Dictionary, b: Dictionary) -> float:
 	for lane in LANES:
 		var f: String = lane["field"]
 		d = maxf(d, absf(a[f] - b[f]) / (lane["hi"] - lane["lo"]))
+	var ca: Array = a["cs"]
+	var cb: Array = b["cs"]
+	if ca.size() != cb.size():
+		return 1.0
+	for i in ca.size():
+		d = maxf(d, maxf(absf(ca[i]["i"] - cb[i]["i"]) / 17.0, absf(ca[i]["d"] - cb[i]["d"]) / 1.5))
 	return d
 
 
