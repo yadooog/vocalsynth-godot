@@ -20,6 +20,7 @@ const OUTER_TONGUE_RADIUS := 3.5
 # Part of the original 600 x 600 canvas that the tract covers.
 const VIEW := Rect2(10, 10, 340, 340)
 const MOUSE_ID := 1000
+const SHOW_ZONES := true # temporary overlay: outlines of where each part of the tract is mapped
 
 var synth = null: # PinkTrombone, untyped so this script loads even if the engine is missing
 	set(value):
@@ -154,6 +155,8 @@ func _draw() -> void:
 		return
 	_draw_tongue_control()
 	_draw_tract()
+	if SHOW_ZONES:
+		_draw_zones()
 
 
 func _quad(a: Vector2, b: Vector2, c: Vector2, d: Vector2, color: Color) -> void:
@@ -215,3 +218,23 @@ func _draw_tongue_control() -> void:
 	var marker := polar(synth.get_tongue_index(), synth.get_tongue_diameter())
 	draw_circle(marker, 18.0, Color(INK, 0.08))
 	draw_arc(marker, 18.0, 0, TAU, 40, INK, 2.0, true)
+
+
+# Overlay of the areas the mouse is mapped to. Red: anywhere in the quarter circle shapes the
+# tract (squeezing it at that point). Blue: the area that grabs the tongue. Green: the
+# slice that is drawn. All are bands of tract position (angle) and diameter (distance from the corner).
+func _zone(i0: float, i1: float, d0: float, d1: float, color: Color) -> void:
+	var pts := PackedVector2Array()
+	var steps := 32
+	for k in steps + 1:
+		pts.append(polar(lerpf(i0, i1, float(k) / steps), d0))
+	for k in steps + 1:
+		pts.append(polar(lerpf(i1, i0, float(k) / steps), d1))
+	pts.append(pts[0])
+	draw_polyline(pts, color, 2.0, true)
+
+
+func _draw_zones() -> void:
+	_zone(0, n - 1, -0.0, RADIUS / SCALE, Color(0.9, 0.1, 0.1, 0.8))
+	_zone(tongue_lower - 4, tongue_upper + 4, INNER_TONGUE_RADIUS - 0.5, OUTER_TONGUE_RADIUS + 0.5, Color(0.1, 0.3, 0.9, 0.9))
+	_zone(tongue_lower - 1.0, tongue_upper + 1.0, INNER_TONGUE_RADIUS, OUTER_TONGUE_RADIUS, Color(0.1, 0.65, 0.2, 0.9))
