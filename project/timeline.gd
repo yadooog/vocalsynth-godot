@@ -13,6 +13,7 @@ extends Control
 signal frame_changed(frame: Dictionary)
 signal playing_changed(on: bool)
 signal recording_changed(on: bool)
+signal scrub_ended
 
 const INK := Color(0.133, 0.133, 0.125)
 const PAPER := Color(0.969, 0.957, 0.933)
@@ -235,6 +236,36 @@ func update_selected(frame: Dictionary) -> void:
 	queue_redraw()
 
 
+func set_selected_ease(kind: String) -> void:
+	if selected != null:
+		selected["ease"] = kind
+		queue_redraw()
+
+
+func select_neighbour(dir: int) -> void:
+	if keys.is_empty():
+		return
+	var i := keys.find(selected)
+	i = 0 if i < 0 else clampi(i + dir, 0, keys.size() - 1)
+	_select(keys[i])
+
+
+func deselect() -> void:
+	selected = null
+	queue_redraw()
+
+
+func is_scrubbing() -> bool:
+	return _drag == "scrub"
+
+
+func _end_drag() -> void:
+	var was_scrub := _drag == "scrub"
+	_drag = ""
+	if was_scrub:
+		scrub_ended.emit()
+
+
 func set_selected_voiced(on: bool) -> void:
 	if selected != null:
 		selected["f"]["voiced"] = on
@@ -444,7 +475,7 @@ func _gui_input(event: InputEvent) -> void:
 		if event.pressed:
 			_press(event.position, event.double_click)
 		else:
-			_drag = ""
+			_end_drag()
 		accept_event()
 	elif event is InputEventMouseMotion and _drag != "":
 		_move(event.position)
@@ -453,7 +484,7 @@ func _gui_input(event: InputEvent) -> void:
 		if event.pressed:
 			_press(event.position, false)
 		else:
-			_drag = ""
+			_end_drag()
 		accept_event()
 	elif event is InputEventScreenDrag and _drag != "":
 		_move(event.position)
@@ -484,7 +515,9 @@ func _press(pos: Vector2, double: bool) -> void:
 			_drag = "key"
 			_grab_dx = _x_of(k["t"]) - pos.x
 		elif double and capture.is_valid():
-			add_key(capture.call(), snap_time(_time_at(pos.x)))
+			var fresh: Dictionary = capture.call()
+			fresh["voiced"] = true
+			add_key(fresh, snap_time(_time_at(pos.x)))
 			frame_changed.emit(selected["f"])
 		else:
 			_start_scrub(pos)

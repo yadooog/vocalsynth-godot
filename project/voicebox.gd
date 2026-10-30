@@ -37,6 +37,7 @@ var tongue_upper := 29.0
 var tongue_centre := 20.5
 
 signal tongue_edited
+signal held(on: bool) # a finger is down on the tract
 signal closure_pressed(id: int, index: float, diameter: float)
 signal closure_moved(id: int, index: float, diameter: float)
 signal closure_released(id: int, on_tract: bool)
@@ -165,6 +166,8 @@ func _gui_input(event: InputEvent) -> void:
 
 func _press(id: int, p: Vector2) -> void:
 	touches[id] = p
+	if touches.size() == 1:
+		held.emit(true)
 	var index := tract_index(p)
 	var diameter := tract_diameter(p)
 	if tongue_touch == -1 \
@@ -201,6 +204,8 @@ func _release(id: int) -> void:
 	if id != tongue_touch and touches.has(id):
 		closure_released.emit(id, _on_tract(touches[id]))
 	touches.erase(id)
+	if touches.is_empty():
+		held.emit(false)
 	synth.touch_end(id)
 	if id == tongue_touch:
 		tongue_touch = -1

@@ -72,33 +72,6 @@ caption = "mouth"
 value = Vector2(0.714, 0.5)
 default_value = Vector2(0.714, 0.5)
 
-[node name="Buttons" type="HBoxContainer" parent="Layout/Left/Column"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="AlwaysVoice" type="Button" parent="Layout/Left/Column/Buttons"]
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-toggle_mode = true
-button_pressed = true
-text = "voice"
-
-[node name="PitchWobble" type="Button" parent="Layout/Left/Column/Buttons"]
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-toggle_mode = true
-button_pressed = true
-text = "wobble"
-
-[node name="Hum" type="Button" parent="Layout/Left/Column/Buttons"]
-layout_mode = 2
-size_flags_horizontal = 3
-focus_mode = 0
-toggle_mode = true
-text = "hum"
-
 [node name="Side" type="VBoxContainer" parent="Layout/Left"]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
@@ -148,7 +121,7 @@ fov = 38.0
 unique_name_in_owner = true
 script = ExtResource("4")
 
-[node name="Toolbar" type="HBoxContainer" parent="Layout/Right"]
+[node name="Toolbar" type="HFlowContainer" parent="Layout/Right"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
@@ -166,6 +139,13 @@ focus_mode = 0
 toggle_mode = true
 text = "play"
 
+[node name="HoldButton" type="Button" parent="Layout/Right/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "hold"
+
 [node name="LoopButton" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -174,11 +154,33 @@ toggle_mode = true
 button_pressed = true
 text = "loop"
 
+[node name="EaseLinear" type="Button" parent="Layout/Right/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "key: linear"
+
+[node name="EaseSmooth" type="Button" parent="Layout/Right/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "key: smooth"
+
+[node name="EaseHold" type="Button" parent="Layout/Right/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "key: hold"
+
 [node name="VoicedKey" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
-text = "voiced / silent"
+toggle_mode = true
+text = "key: voiced"
 
 [node name="ClearClosures" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true
@@ -196,13 +198,13 @@ text = "+ key"
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
-text = "delete key"
+text = "delete"
 
 [node name="ClearKeys" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
-text = "clear"
+text = "clear all"
 
 [node name="Timeline" type="Control" parent="Layout/Right"]
 unique_name_in_owner = true
@@ -215,6 +217,3 @@ script = ExtResource("5")
 [connection signal="held" from="Layout/Left/Column/Pads/PitchPad" to="." method="_on_pitch_held"]
 [connection signal="moved" from="Layout/Left/Column/Pads/MouthPad" to="." method="_on_mouth_moved"]
 [connection signal="moved" from="Layout/Left/Side/SizeSlider" to="." method="_on_size_moved"]
-[connection signal="toggled" from="Layout/Left/Column/Buttons/AlwaysVoice" to="." method="_on_always_voice_toggled"]
-[connection signal="toggled" from="Layout/Left/Column/Buttons/PitchWobble" to="." method="_on_pitch_wobble_toggled"]
-[connection signal="toggled" from="Layout/Left/Column/Buttons/Hum" to="." method="_on_hum_toggled"]

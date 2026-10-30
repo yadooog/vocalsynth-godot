@@ -15,10 +15,11 @@ var synth # PinkTrombone (untyped so this script still loads if the engine is mi
 @onready var camera: Camera3D = %Camera
 @onready var character_view: Control = %CharacterView
 @onready var timeline: Control = %Timeline
-@onready var always_voice_button: Button = %AlwaysVoice
 
 var time := 0.0
 var steering := false
+var interacting := 0   # fingers currently on the control pad
+var hold_on := false   # keep sounding the current pose
 
 
 func _ready() -> void:
@@ -46,6 +47,14 @@ func _ready() -> void:
 	if "tongue_full_range" in synth:
 		synth.tongue_full_range = true # the tongue can go anywhere in its slice, not just the original triangle
 	voicebox.synth = synth
+	synth.auto_wobble = true
+	voicebox.held.connect(_on_interact)
+	mouth_pad.held.connect(_on_interact)
+	size_slider.held.connect(_on_interact)
+	timeline.scrub_ended.connect(_update_voicing)
+	%HoldButton.toggled.connect(func(on): hold_on = on; _update_voicing())
+	for kind in ["Linear", "Smooth", "Hold"]:
+		get_node("%Ease" + kind).pressed.connect(func(): timeline.set_selected_ease(kind.to_lower()))
 	voicebox.timeline = timeline
 	pitch_pad.timeline = timeline
 	pitch_pad.field_x = "px"
@@ -64,7 +73,7 @@ func _ready() -> void:
 	voicebox.closure_moved.connect(func(id, i, d): _closure_edit(func(): timeline.closure_move(id, i, d)))
 	voicebox.closure_released.connect(func(id, on): _closure_edit(func(): timeline.closure_release(id, on)))
 	# Which lanes the timeline shows.
-	var lane_bar := HBoxContainer.new()
+	var lane_bar := HFlowContainer.new()
 	lane_bar.add_theme_constant_override("separation", 6)
 	timeline.get_parent().add_child(lane_bar)
 	timeline.get_parent().move_child(lane_bar, timeline.get_index())
@@ -85,7 +94,7 @@ func _ready() -> void:
 	%RecButton.toggled.connect(func(on): timeline.start_recording() if on else timeline.stop())
 	%PlayButton.toggled.connect(func(on): timeline.play() if on else timeline.stop())
 	%LoopButton.toggled.connect(func(on): timeline.looping = on)
-	%AddKey.pressed.connect(func(): timeline.add_key(capture_frame()))
+	%AddKey.pressed.connect(func(): timeline.add_key(capture_frame(true)))
 	%DeleteKey.pressed.connect(timeline.delete_selected)
 	%ClearKeys.pressed.connect(timeline.clear)
 	camera.look_at_from_position(Vector3(0, 2.5, 9.0), Vector3(0, 2.0, 0))
@@ -95,6 +104,10 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	time += delta
+	var sel = timeline.selected
+	for kind in ["Linear", "Smooth", "Hold"]:
+		get_node("%Ease" + kind).set_pressed_no_signal(sel != null and sel["ease"] == kind.to_lower())
+	%VoicedKey.set_pressed_no_signal(sel != null and sel["f"]["voiced"])
 	_keyboard_walk()
 	character.update_character(delta, _face(), time)
 
@@ -172,9 +185,21 @@ func _on_pitch_moved(v: Vector2) -> void:
 	synth.tenseness = 1.0 - cos((1.0 - v.y) * PI / 2.0) # top = tense, bottom = breathy
 
 
+func _on_interact(on: bool) -> void:
+	if on and timeline.playing:
+		timeline.stop() # touching the pad takes over from playback
+	interacting = maxi(0, interacting + (1 if on else -1))
+	_update_voicing()
+
+
+# Sound only while you're touching the control pad (or holding), unless a phrase is playing.
+func _update_voicing() -> void:
+	if synth and not timeline.playing:
+		synth.voice_held = interacting > 0 or hold_on
+
+
 func _on_pitch_held(on: bool) -> void:
-	if synth:
-		synth.voice_held = on
+	_on_interact(on)
 	if on and timeline.selected != null and not timeline.playing:
 		timeline.set_selected_voiced(true) # sounding a selected key makes it a voiced one
 	if on:
@@ -192,31 +217,16 @@ func _on_size_moved(v: Vector2) -> void:
 		synth.voice_size = 0.5 * pow(4.0, 1.0 - v.y) # slider up = giant (2), middle = 1, down = tiny (0.5)
 
 
-func _on_always_voice_toggled(on: bool) -> void:
-	if synth:
-		synth.always_voice = on
-
-
-func _on_pitch_wobble_toggled(on: bool) -> void:
-	if synth:
-		synth.auto_wobble = on
-
-
-func _on_hum_toggled(on: bool) -> void:
-	if synth:
-		synth.velum_open = on
-
-
 # ---------------------------------------------------------------- timeline
 
 # The controls as a frame (one pose) for the timeline to store.
-func capture_frame() -> Dictionary:
+func capture_frame(force_voiced := false) -> Dictionary:
 	return {
 		"px": pitch_pad.value.x, "py": pitch_pad.value.y,
 		"mx": mouth_pad.value.x, "my": mouth_pad.value.y,
 		"sz": size_slider.value.y,
 		"ti": synth.get_tongue_index(), "td": synth.get_tongue_diameter(),
-		"voiced": synth.voice_held or synth.always_voice,
+		"voiced": force_voiced or synth.voice_held,
 		"cs": _current_closures(),
 	}
 
@@ -230,7 +240,7 @@ func apply_frame(f: Dictionary) -> void:
 	size_slider.set_value(Vector2(0.5, f["sz"]))
 	synth.set_tongue(f["ti"], f["td"])
 	voicebox.set_closures(f.get("cs", []))
-	if timeline.playing:
+	if timeline.playing or timeline.is_scrubbing():
 		synth.voice_held = f["voiced"]
 
 
@@ -257,9 +267,40 @@ func _on_playing_changed(on: bool) -> void:
 	%PlayButton.set_pressed_no_signal(on)
 	if synth == null:
 		return
-	if on:
-		synth.always_voice = false
-	else:
-		synth.always_voice = always_voice_button.button_pressed
-		synth.voice_held = false
+	if not on:
 		voicebox.set_closures([])
+		synth.voice_held = false
+		_update_voicing()
+
+
+# Keyboard, as in the web game: space or P plays, K adds a key, H holds, L loops, R records,
+# Delete removes the selected key, [ and ] step through keys, Escape lets go.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo) or synth == null:
+		return
+	match event.keycode:
+		KEY_SPACE, KEY_P:
+			if timeline.playing:
+				timeline.stop()
+			else:
+				timeline.play()
+		KEY_K:
+			timeline.add_key(capture_frame(true))
+		KEY_H:
+			%HoldButton.button_pressed = not %HoldButton.button_pressed
+		KEY_L:
+			%LoopButton.button_pressed = not %LoopButton.button_pressed
+		KEY_R:
+			%RecButton.button_pressed = not %RecButton.button_pressed
+		KEY_DELETE, KEY_BACKSPACE:
+			timeline.delete_selected()
+		KEY_BRACKETLEFT:
+			timeline.select_neighbour(-1)
+		KEY_BRACKETRIGHT:
+			timeline.select_neighbour(1)
+		KEY_ESCAPE:
+			timeline.stop()
+			timeline.deselect()
+		_:
+			return
+	get_viewport().set_input_as_handled()
