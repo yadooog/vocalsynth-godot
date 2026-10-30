@@ -30,6 +30,7 @@ theme_override_constants/separation = 24
 [node name="Left" type="HBoxContainer" parent="Layout"]
 custom_minimum_size = Vector2(440, 0)
 layout_mode = 2
+size_flags_vertical = 0
 theme_override_constants/separation = 12
 
 [node name="Column" type="VBoxContainer" parent="Layout/Left"]
