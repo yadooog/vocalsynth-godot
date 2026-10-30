@@ -69,6 +69,7 @@ func _face() -> Dictionary:
 	var open := 0.0 if shut else clampf((jaw - 0.25) * 1.6 + 0.25 * low, 0.0, 1.0)
 	return {
 		"open": open,
+		"size": clampf(log(maxf(0.25, synth.voice_size)) / log(2.0), -1.0, 1.0),
 		"lips": clampf(lips / 1.4, 0.0, 1.2),
 		"jaw": jaw,
 		"shut": shut,

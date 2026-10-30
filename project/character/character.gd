@@ -51,9 +51,9 @@ const TONGUE_GRAVITY := 8.0
 const TONGUE_DAMPING := 0.996
 const TONGUE_STIFFNESS := 0.035
 const TONGUE_ROOT_STIFFNESS := 0.3
-const TONGUE_FLAP := 55.0
-const TONGUE_WRITHE := 14.0
-const TONGUE_TWITCH := 2.5
+const TONGUE_FLAP := 14.0
+const TONGUE_WRITHE := 3.5
+const TONGUE_TWITCH := 0.4
 const TONGUE_LENGTH_SPRING := 120.0
 const TONGUE_LENGTH_DAMPING := 9.0
 const TONGUE_BULGE := 0.35
@@ -117,6 +117,7 @@ var walk_target = null                # Vector3 or null
 var head_sx := 1.0                    # current head width / height factors (springy)
 var head_sy := 1.0
 var head_sx_v := 0.0
+var last_open := 0.0
 var head_sy_v := 0.0
 var mouth_key := ""
 
@@ -427,8 +428,17 @@ func update_character(dt: float, face: Dictionary, time: float) -> void:
 	var brow: float = face.get("brow", 0.0)
 
 	# Head width follows the lips and its height follows the jaw, with a springy overshoot.
-	var want_sx: float = lerpf(0.68, 1.5, clampf(face.get("lips", 0.7), 0.0, 1.0))
-	var want_sy: float = lerpf(0.75, 1.45, clampf(face.get("jaw", 0.5), 0.0, 1.0))
+	# The base shape comes from the size slider (bigger = fatter and bigger); the mouth only
+	# squashes and stretches it for a moment while it opens, closes and spreads.
+	var size01 := clampf(face.get("size", 0.0) * 0.5 + 0.5, 0.0, 1.0)
+	var djaw: float = face.get("jaw", 0.5) - 0.5
+	var dlips: float = face.get("lips", 0.71) - 0.71
+	var want_sx: float = lerpf(0.72, 1.45, size01) * (1.0 + 0.3 * dlips - 0.15 * djaw)
+	var want_sy: float = lerpf(0.8, 1.3, size01) * (1.0 + 0.45 * djaw - 0.1 * dlips)
+	# Opening or closing the mouth bounces the head.
+	var open_now: float = face.get("open", 0.0)
+	sag_vel += (open_now - last_open) * 6.0
+	last_open = open_now
 	head_sx_v += ((want_sx - head_sx) * 220.0 - head_sx_v * 14.0) * dt
 	head_sy_v += ((want_sy - head_sy) * 220.0 - head_sy_v * 14.0) * dt
 	var nsx: float = clampf(head_sx + head_sx_v * dt, 0.5, 1.7)
@@ -580,7 +590,7 @@ func _update_eyes(dt: float) -> void:
 func _update_tongue(dt: float, face: Dictionary) -> void:
 	var n := TONGUE_POINTS
 	var mouth_xf := mouth.global_transform
-	var root := mouth_xf * Vector3(0, 0, -0.15)
+	var root := mouth_xf * Vector3(0, -0.05, -0.05)
 	var out := (mouth_xf.basis * Vector3(0, -0.4, 1)).normalized()
 	var loud: float = face.get("loud", 0.0)
 	var talking: float = face.get("talking", 0.0)
@@ -624,7 +634,7 @@ func _update_tongue(dt: float, face: Dictionary) -> void:
 	# A sudden spasm now and then, or a flick when a sound starts.
 	if kick or rng.randf() < TONGUE_TWITCH * dt * out01:
 		var at := 3 + rng.randi() % (n - 3)
-		var shove := Vector3(rng.randf() - 0.5, rng.randf() * 0.8 - 0.15, rng.randf() - 0.5) * 2.0 * ((0.12 if kick else 0.07) * (1.0 + loud))
+		var shove := Vector3(rng.randf() - 0.5, rng.randf() * 0.8 - 0.15, rng.randf() - 0.5) * 2.0 * ((0.05 if kick else 0.03) * (1.0 + loud))
 		if kick:
 			shove += out * 0.08
 			shove.y += 0.08
@@ -755,7 +765,7 @@ func _draw_tongue(pts: Array) -> void:
 		var binormal := t.cross(normal).normalized()
 		# Narrow root, fat middle, and lumps that ripple down towards the tip.
 		var lump := 1.0 + TONGUE_BULGE * pow(maxf(0.0, sin(u * 14.0 - flap_time * 9.0)), 2.0) * u
-		var taper := (0.7 + 0.45 * sin(PI * minf(1.0, u * 1.15))) * lump
+		var taper := (0.45 + 0.7 * sin(PI * minf(1.0, u * 1.15))) * lump * lerpf(0.55, 1.0, smoothstep(0.0, 0.2, u))
 		var r := TONGUE_RADIUS * taper
 		for k in radial:
 			var a := float(k) / radial * TAU
