@@ -9,17 +9,16 @@ const FILL := Color(0.89, 0.871, 0.831)
 const PAD := Color(0.925, 0.91, 0.875)
 
 # Tract drawing (canvas units, same as the original).
-const ORIGIN := Vector2(340, 449)
-const RADIUS := 298.0
+# The tract is a quarter circle centred on the bottom-right corner: the throat is at the
+# left end and the lips at the top end. Roof = outer arc, floor = inner arc.
+const ORIGIN := Vector2(330, 330)
+const RADIUS := 300.0
 const SCALE := 60.0
-const ANGLE_SCALE := 0.64
-const ANGLE_OFFSET := -0.24
-const NOSE_OFFSET := 0.8
 const INNER_TONGUE_RADIUS := 2.05
 const OUTER_TONGUE_RADIUS := 3.5
 
 # Part of the original 600 x 600 canvas that the tract covers.
-const VIEW := Rect2(20, 110, 480, 425)
+const VIEW := Rect2(10, 10, 340, 340)
 const MOUSE_ID := 1000
 
 var synth = null: # PinkTrombone, untyped so this script loads even if the engine is missing
@@ -73,20 +72,20 @@ func to_canvas(p: Vector2) -> Vector2:
 
 
 func polar(i: float, d: float, wobble := 0.0) -> Vector2:
-	var angle := ANGLE_OFFSET + i * ANGLE_SCALE * PI / (lip_start - 1)
+	var angle := PI + (i / (n - 1)) * PI * 0.5
 	var r := RADIUS - SCALE * d
 	if wobble != 0.0:
 		var w := wobble * sin(2.0 * i - 50.0 * Time.get_ticks_msec() / 1000.0) * i / n
 		angle += w
 		r += 100.0 * w
-	return Vector2(ORIGIN.x - r * cos(angle), ORIGIN.y - r * sin(angle))
+	return Vector2(ORIGIN.x + r * cos(angle), ORIGIN.y + r * sin(angle))
 
 
 func tract_index(p: Vector2) -> float:
 	var angle := atan2(p.y - ORIGIN.y, p.x - ORIGIN.x)
-	while angle > 0:
+	if angle > 0:
 		angle -= TAU
-	return (PI + angle - ANGLE_OFFSET) * (lip_start - 1) / (ANGLE_SCALE * PI)
+	return clampf((angle + PI) / (PI * 0.5) * (n - 1), 0.0, n - 1)
 
 
 func tract_diameter(p: Vector2) -> float:
@@ -195,16 +194,16 @@ func _draw_tract() -> void:
 
 
 func _draw_tongue_control() -> void:
+	# A slice of the quarter circle: an arc at the inner radius out and back along the outer one.
 	var outline := PackedVector2Array()
-	for i in range(int(tongue_lower), int(tongue_upper) + 1):
-		outline.append(polar(i, INNER_TONGUE_RADIUS))
-	outline.append(polar(tongue_centre, OUTER_TONGUE_RADIUS))
+	var steps := 24
+	var lo := tongue_lower - 1.0
+	var hi := tongue_upper + 1.0
+	for k in steps + 1:
+		outline.append(polar(lerpf(lo, hi, float(k) / steps), INNER_TONGUE_RADIUS))
+	for k in steps + 1:
+		outline.append(polar(lerpf(hi, lo, float(k) / steps), OUTER_TONGUE_RADIUS))
 	draw_colored_polygon(outline, PAD)
-	var closed := outline.duplicate()
-	closed.append(outline[0])
-	draw_polyline(closed, PAD, 45.0)
-	for p in outline:
-		draw_circle(p, 22.5, PAD)
 
 	var a := INNER_TONGUE_RADIUS
 	var c := OUTER_TONGUE_RADIUS
