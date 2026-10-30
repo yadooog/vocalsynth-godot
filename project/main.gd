@@ -76,6 +76,7 @@ func _ready() -> void:
 		b.button_pressed = timeline.lane_ids.has(lane["id"])
 		b.toggled.connect(timeline.set_lane.bind(lane["id"]))
 		lane_bar.add_child(b)
+	%ClearClosures.pressed.connect(func(): _closure_edit(timeline.clear_closures))
 	%VoicedKey.pressed.connect(func(): timeline.set_selected_voiced(timeline.selected == null or not timeline.selected["f"]["voiced"]))
 	timeline.capture = Callable(self, "capture_frame")
 	timeline.frame_changed.connect(apply_frame)

@@ -215,6 +215,13 @@ func closure_release(id: int, on_tract: bool) -> void:
 	queue_redraw()
 
 
+func clear_closures() -> void:
+	if selected != null:
+		selected["f"]["cs"] = []
+		_slot_of.clear()
+		queue_redraw()
+
+
 func closures_of_selected() -> Array:
 	return [] if selected == null else selected["f"]["cs"]
 

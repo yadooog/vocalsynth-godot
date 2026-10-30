@@ -112,7 +112,7 @@ func active_closures() -> Array:
 	var out: Array = []
 	for id in touches:
 		if id != tongue_touch and _on_tract(touches[id]) and out.size() < 2:
-			out.append({"i": snapped(tract_index(touches[id]), 0.01), "d": snapped(tract_diameter(touches[id]), 0.001)})
+			out.append({"i": snapped(clampf(tract_index(touches[id]), 2.0, n - 1.0), 0.01), "d": snapped(maxf(tract_diameter(touches[id]), 0.0), 0.001)})
 	return out
 
 
@@ -167,26 +167,33 @@ func _press(id: int, p: Vector2) -> void:
 	touches[id] = p
 	var index := tract_index(p)
 	var diameter := tract_diameter(p)
-	synth.touch_start(id, index, diameter)
 	if tongue_touch == -1 \
 			and index >= tongue_lower - 4 and index <= tongue_upper + 4 \
 			and diameter >= INNER_TONGUE_RADIUS - 0.5 and diameter <= OUTER_TONGUE_RADIUS + 0.5:
 		tongue_touch = id
+		synth.touch_start(id, index, diameter)
 		synth.set_tongue(index, diameter)
 		tongue_edited.emit()
-	if id != tongue_touch:
-		closure_pressed.emit(id, index, diameter)
+		return
+	# A closure can't go outside the tract wall (and the sound goes strange if it does).
+	index = clampf(index, 2.0, n - 1.0)
+	diameter = maxf(diameter, 0.0)
+	synth.touch_start(id, index, diameter)
+	closure_pressed.emit(id, index, diameter)
 
 
 func _drag(id: int, p: Vector2) -> void:
 	touches[id] = p
 	var index := tract_index(p)
 	var diameter := tract_diameter(p)
-	synth.touch_move(id, index, diameter)
 	if id == tongue_touch:
+		synth.touch_move(id, index, diameter)
 		synth.set_tongue(index, diameter)
 		tongue_edited.emit()
 	else:
+		index = clampf(index, 2.0, n - 1.0)
+		diameter = maxf(diameter, 0.0)
+		synth.touch_move(id, index, diameter)
 		closure_moved.emit(id, index, diameter)
 
 
