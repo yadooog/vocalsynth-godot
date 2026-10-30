@@ -51,6 +51,8 @@ public:
 	bool get_auto_wobble() const;
 	void set_vibrato_amount(double v);
 	double get_vibrato_amount() const;
+	void set_tongue_full_range(bool v);
+	bool get_tongue_full_range() const;
 	void set_velum_open(bool v);
 	bool get_velum_open() const;
 	void set_voice_size(double v);

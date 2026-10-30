@@ -95,6 +95,8 @@ double PinkTrombone::get_voice_size() const { LOCK; return synth->voiceSize; }
 void PinkTrombone::set_jaw(double v) { LOCK; synth->jaw = pt::clamp(v, 0, 1); }
 double PinkTrombone::get_jaw() const { LOCK; return synth->jaw; }
 void PinkTrombone::set_lips(double v) { LOCK; synth->lips = pt::clamp(v, 0, 2); }
+void PinkTrombone::set_tongue_full_range(bool v) { LOCK; synth->tongueFullRange = v; }
+bool PinkTrombone::get_tongue_full_range() const { LOCK; return synth->tongueFullRange; }
 double PinkTrombone::get_lips() const { LOCK; return synth->lips; }
 void PinkTrombone::set_volume(double v) { LOCK; volume = v; }
 double PinkTrombone::get_volume() const { LOCK; return volume; }
@@ -139,6 +141,7 @@ void PinkTrombone::_bind_methods() {
 	PROP(BOOL, auto_wobble)
 	PROP(FLOAT, vibrato_amount)
 	PROP(BOOL, velum_open)
+	PROP(BOOL, tongue_full_range)
 	PROP(FLOAT, voice_size)
 	PROP(FLOAT, jaw)
 	PROP(FLOAT, lips)

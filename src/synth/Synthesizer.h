@@ -24,6 +24,7 @@ public:
 	Glottis glottis;
 	Tract tract;
 	TractShaper shaper;
+	bool tongueFullRange = false; // let the tongue go anywhere in its control area, not just the original triangle
 	bool velumForcedOpen = false; // open the nose without a touch ("hum")
 
 	// Voice size: 1 = the original. 2 = tract twice as long (giant), 0.5 = half (tiny).

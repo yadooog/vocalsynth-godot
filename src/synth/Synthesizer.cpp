@@ -110,7 +110,7 @@ void Synthesizer::setTongue(double index, double diameter) {
 	fromPoint = clamp(fromPoint, 0, 1);
 	fromPoint = std::pow(fromPoint, 0.58) - 0.2 * (fromPoint * fromPoint - fromPoint); // fits the curve to a straight line
 	shaper.tongueDiameter = clamp(diameter, innerTongueControlRadius, outerTongueControlRadius);
-	const double out = fromPoint * 0.5 * (tongueUpperIndexBound - tongueLowerIndexBound);
+	const double out = tongueFullRange ? 0.5 * (tongueUpperIndexBound - tongueLowerIndexBound) : fromPoint * 0.5 * (tongueUpperIndexBound - tongueLowerIndexBound);
 	shaper.tongueIndex = clamp(index, tongueIndexCentre - out, tongueIndexCentre + out);
 }
 

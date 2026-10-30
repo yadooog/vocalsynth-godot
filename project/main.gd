@@ -41,6 +41,8 @@ func _ready() -> void:
 	add_child(player)
 	player.play()
 
+	if "tongue_full_range" in synth:
+		synth.tongue_full_range = true # the tongue can go anywhere in its slice, not just the original triangle
 	voicebox.synth = synth
 	camera.look_at_from_position(Vector3(0, 2.5, 9.0), Vector3(0, 2.0, 0))
 	_on_mouth_moved(mouth_pad.value)
