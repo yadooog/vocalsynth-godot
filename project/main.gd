@@ -46,6 +46,21 @@ func _ready() -> void:
 	if "tongue_full_range" in synth:
 		synth.tongue_full_range = true # the tongue can go anywhere in its slice, not just the original triangle
 	voicebox.synth = synth
+	voicebox.timeline = timeline
+	pitch_pad.timeline = timeline
+	pitch_pad.field_x = "px"
+	pitch_pad.field_y = "py"
+	mouth_pad.timeline = timeline
+	mouth_pad.field_x = "mx"
+	mouth_pad.field_y = "my"
+	size_slider.timeline = timeline
+	size_slider.field_x = "sz"
+	size_slider.field_y = "sz"
+	# Changing a control while a key is selected edits that key.
+	for pad in [pitch_pad, mouth_pad, size_slider]:
+		pad.user_edited.connect(_on_user_edit)
+	voicebox.tongue_edited.connect(_on_user_edit)
+	%VoicedKey.pressed.connect(func(): timeline.set_selected_voiced(timeline.selected == null or not timeline.selected["f"]["voiced"]))
 	timeline.capture = Callable(self, "capture_frame")
 	timeline.frame_changed.connect(apply_frame)
 	timeline.playing_changed.connect(_on_playing_changed)
@@ -143,6 +158,8 @@ func _on_pitch_moved(v: Vector2) -> void:
 func _on_pitch_held(on: bool) -> void:
 	if synth:
 		synth.voice_held = on
+	if on and timeline.selected != null and not timeline.playing:
+		timeline.set_selected_voiced(true) # sounding a selected key makes it a voiced one
 	if on:
 		character.hop_vel = 2.4 # a little jump when you grab the pitch pad
 
@@ -196,6 +213,11 @@ func apply_frame(f: Dictionary) -> void:
 	synth.set_tongue(f["ti"], f["td"])
 	if timeline.playing:
 		synth.voice_held = f["voiced"]
+
+
+func _on_user_edit() -> void:
+	if timeline.selected != null and not timeline.playing and not timeline.recording:
+		timeline.update_selected(capture_frame())
 
 
 # While a phrase plays, the key's own voicing decides when it sounds.

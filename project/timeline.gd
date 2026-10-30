@@ -96,6 +96,44 @@ func _blend(a: Dictionary, b: Dictionary, k: float) -> Dictionary:
 	return out # voicing switches at the next key
 
 
+# The runs of (fx, fy) values the controls follow between the first and last key, optionally
+# only where voiced; each run is an array of Vector2 (for drawing motion lines on the pads).
+func paths(fx: String, fy: String, voiced_only := false) -> Array:
+	var runs: Array = []
+	if keys.is_empty():
+		return runs
+	var t0: float = keys[0]["t"]
+	var t1: float = keys[keys.size() - 1]["t"]
+	var steps := maxi(1, ceili((t1 - t0) * 40.0))
+	var run: Array = []
+	for i in steps + 1:
+		var f := sample(t0 + (t1 - t0) * i / steps)
+		if voiced_only and not f["voiced"]:
+			if run.size() > 1:
+				runs.append(run)
+			run = []
+		else:
+			run.append(Vector2(f[fx], f[fy]))
+	if run.size() > 1:
+		runs.append(run)
+	return runs
+
+
+# The selected key takes on the controls' current values (its voicing stays as it was).
+func update_selected(frame: Dictionary) -> void:
+	if selected == null:
+		return
+	for field in NUMBER_FIELDS:
+		selected["f"][field] = frame[field]
+	queue_redraw()
+
+
+func set_selected_voiced(on: bool) -> void:
+	if selected != null:
+		selected["f"]["voiced"] = on
+		queue_redraw()
+
+
 func _sort_keys() -> void:
 	keys.sort_custom(func(x, y): return x["t"] < y["t"])
 

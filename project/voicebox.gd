@@ -36,6 +36,10 @@ var tongue_lower := 12.0
 var tongue_upper := 29.0
 var tongue_centre := 20.5
 
+signal tongue_edited
+
+var timeline: Control = null # shows the phrase's tongue motion when set
+
 var touches := {} # id -> canvas position
 var tongue_touch := -1
 
@@ -128,6 +132,7 @@ func _press(id: int, p: Vector2) -> void:
 			and diameter >= INNER_TONGUE_RADIUS - 0.5 and diameter <= OUTER_TONGUE_RADIUS + 0.5:
 		tongue_touch = id
 		synth.set_tongue(index, diameter)
+		tongue_edited.emit()
 
 
 func _drag(id: int, p: Vector2) -> void:
@@ -137,6 +142,7 @@ func _drag(id: int, p: Vector2) -> void:
 	synth.touch_move(id, index, diameter)
 	if id == tongue_touch:
 		synth.set_tongue(index, diameter)
+		tongue_edited.emit()
 
 
 func _release(id: int) -> void:
@@ -157,6 +163,7 @@ func _draw() -> void:
 	_draw_tract()
 	if SHOW_ZONES:
 		_draw_zones()
+	Motion.draw(self, timeline, "ti", "td", func(v): return polar(v.x, v.y))
 
 
 func _quad(a: Vector2, b: Vector2, c: Vector2, d: Vector2, color: Color) -> void:
