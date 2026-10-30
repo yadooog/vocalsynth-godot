@@ -166,13 +166,6 @@ toggle_mode = true
 tooltip_text = "ease in and out of this key"
 text = "smooth"
 
-[node name="ClearClosures" type="Button" parent="Layout/Right/Toolbar"]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-tooltip_text = "remove this key's squeezes"
-text = "clear closures"
-
 [node name="AddKey" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true
 layout_mode = 2

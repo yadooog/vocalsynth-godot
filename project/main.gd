@@ -86,7 +86,6 @@ func _ready() -> void:
 		b.button_pressed = timeline.lane_ids.has(lane["id"])
 		b.toggled.connect(timeline.set_lane.bind(lane["id"]))
 		lane_bar.add_child(b)
-	%ClearClosures.pressed.connect(func(): _closure_edit(timeline.clear_closures))
 	timeline.capture = Callable(self, "capture_frame")
 	timeline.frame_changed.connect(apply_frame)
 	timeline.playing_changed.connect(_on_playing_changed)
