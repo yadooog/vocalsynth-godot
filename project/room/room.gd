@@ -16,6 +16,7 @@ const WALL := Color("#e4dcf2")
 
 var speakers: Array = []   # [box, cone] pairs that bounce on the kick drum
 var _thump := 0.0
+var booth_light: ShaderMaterial
 
 
 func _ready() -> void:
@@ -25,6 +26,12 @@ func _ready() -> void:
 ## The kick drum just hit: make the speakers bounce.
 func thump() -> void:
 	_thump = 1.0
+
+
+## The light over the booth door: red while someone is inside.
+func set_booth_busy(on: bool) -> void:
+	if booth_light:
+		booth_light.set_shader_parameter("albedo", Color("#e4572e") if on else Color("#86c79a"))
 
 
 func _process(delta: float) -> void:
@@ -167,6 +174,8 @@ func _build() -> void:
 					cone.position = Vector3(0, -0.3, 0.61)
 					spk.add_child(cone)
 					speakers.append([spk, cone])
+			"booth":
+				_put(_box(Vector3(o["w"], 1.4, o["d"])), _mat(WALL, true, 0.03), Vector3(x, 0.7, z))
 			"crate":
 				_put(_box(Vector3(o["w"], o["w"], o["d"])), wood, Vector3(x, o["w"] / 2.0, z))
 			"table":
@@ -175,3 +184,19 @@ func _build() -> void:
 				_put(_box(Vector3(w, 0.15, d)), white, Vector3(x, 1.0, z))
 				for sx in [-1.0, 1.0]:
 					_put(_box(Vector3(0.2, 0.95, d * 0.8)), white, Vector3(x + sx * (w / 2 - 0.4), 0.47, z))
+
+	# The booth's floor, sign and "on air" light.
+	var bx: float = World.BOOTH["x"]
+	var bz: float = World.BOOTH["z"]
+	_put(_box(Vector3(World.BOOTH["w"] - 0.3, 0.02, World.BOOTH["d"] - 0.3)), _mat(Color("#3a3644")), Vector3(bx, 0.015, bz))
+	var booth_sign := Label3D.new()
+	booth_sign.text = "~/booth"
+	booth_sign.modulate = INK
+	booth_sign.outline_size = 0
+	booth_sign.font_size = 64
+	booth_sign.pixel_size = 0.01
+	booth_sign.rotation = Vector3(-PI / 2, 0, 0)
+	booth_sign.position = Vector3(bx, 0.03, bz + World.BOOTH["d"] / 2.0 + 0.7)
+	add_child(booth_sign)
+	booth_light = _mat(Color("#86c79a"), true, 0.03)
+	_put(_ball(0.22), booth_light, Vector3(bx + World.BOOTH["w"] / 2.0 - 0.15, 1.65, bz - 1.55))

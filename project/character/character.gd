@@ -65,6 +65,8 @@ const OUTFIT_COLOR := Color(0.435, 0.827, 0.941)
 const TONGUE_COLOR := Color(1.0, 0.47, 0.6)
 const LIP_COLOR := Color(1.0, 0.2, 0.275)
 
+var head_color := HEAD_COLOR      # set before adding to the tree to make a different-looking character
+var outfit_color := OUTFIT_COLOR
 var toon_shader: Shader = preload("res://character/toon.gdshader")
 var toon_double_shader: Shader = preload("res://character/toon_double.gdshader")
 var outline_shader: Shader = preload("res://character/outline.gdshader")
@@ -194,8 +196,8 @@ func _build() -> void:
 	top_y = head_y + head_h / 2.0
 	neck_y = body_y + body_h / 2.0 - 0.1
 
-	var outfit := _toon(OUTFIT_COLOR, true, 0.025)
-	var skin := _toon(HEAD_COLOR, true, 0.025)
+	var outfit := _toon(outfit_color, true, 0.025)
+	var skin := _toon(head_color, true, 0.025)
 
 	# Soft round shadow on the floor.
 	var shadow := MeshInstance3D.new()
@@ -246,7 +248,7 @@ func _build() -> void:
 	head = Node3D.new()
 	head.position.y = head_y - neck_y
 	neck.add_child(head)
-	skull = _capsule(HEAD_R, HEAD_LEN, _toon(HEAD_COLOR, true, 0.045))
+	skull = _capsule(HEAD_R, HEAD_LEN, _toon(head_color, true, 0.045))
 	head.add_child(skull)
 
 	# Googly eyes: a white dome with a loose black pupil rattling around inside.

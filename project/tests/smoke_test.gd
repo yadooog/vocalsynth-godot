@@ -92,6 +92,27 @@ func _initialize() -> void:
 		print("info: audio thread advanced the synth by %.3f s" % (main.synth.get_time() - t0))
 		print("info: character walked to x=%.2f, head width %.2f height %.2f" % [character.position.x, character.head_sx, character.head_sy])
 		print("ok: character runs")
+		# The booth: walk in, make a phrase, finish, and it joins the song.
+		if not World.in_booth(World.BOOTH["x"], World.BOOTH["z"]) or World.in_booth(0.0, 0.0):
+			printerr("FAIL: in_booth is wrong")
+			ok = false
+		character.position = Vector3(World.BOOTH["x"], 0, World.BOOTH["z"])
+		main._update_booth(0.1)
+		if main.booth_state != "booth":
+			printerr("FAIL: walking into the booth did not start a turn (%s)" % main.booth_state)
+			ok = false
+		var tl = main.get_node("%Timeline")
+		tl.add_key(main.capture_frame(true), 0.0)
+		tl.add_key(main.capture_frame(true), 2.0)
+		main._finish_booth()
+		if main.booth_state != "reveal_wait" or main.song.sections.size() != 1:
+			printerr("FAIL: finishing in the booth did not add a section (%s, %d)" % [main.booth_state, main.song.sections.size()])
+			ok = false
+		for i in 20:
+			await process_frame
+		main.song.set_live(0)
+		main.song.update(0.016, 1.0, 1.0, 1.0)
+		print("ok: booth adds a section to the song")
 
 	quit(0 if ok else 1)
 

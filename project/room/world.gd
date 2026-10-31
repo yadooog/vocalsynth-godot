@@ -32,7 +32,18 @@ const OBSTACLES := [
 	{"shape": "box", "x": 20.4, "z": -12.6, "w": 2.0, "d": 2.0, "kind": "crate"},
 	{"shape": "box", "x": 19.0, "z": -9.8, "w": 2.0, "d": 2.0, "kind": "crate"},
 	{"shape": "box", "x": 6.0, "z": 15.0, "w": 8.0, "d": 1.6, "kind": "table"},
+	# The booth, left of the stage: low walls with a door facing the stage.
+	{"shape": "box", "x": -27.85, "z": -9.5, "w": 0.3, "d": 4.0, "kind": "booth"},
+	{"shape": "box", "x": -26.0, "z": -11.35, "w": 4.0, "d": 0.3, "kind": "booth"},
+	{"shape": "box", "x": -26.0, "z": -7.65, "w": 4.0, "d": 0.3, "kind": "booth"},
+	{"shape": "box", "x": -24.15, "z": -11.05, "w": 0.3, "d": 0.9, "kind": "booth"},
+	{"shape": "box", "x": -24.15, "z": -7.95, "w": 0.3, "d": 0.9, "kind": "booth"},
 ]
+
+# The booth: step inside to make your section of the song in private.
+const BOOTH := {"x": -26.0, "z": -9.5, "w": 4.0, "d": 4.0}
+const BOOTH_EXIT := Vector2(-22.6, -9.5)   # where you're put when you walk out
+const REVEAL_SPOT := Vector2(-16.0, -11.2) # where you stand for your reveal, in front of the mic
 
 # Rugs: flat, walkable, named areas.
 const RUGS := [
@@ -48,6 +59,12 @@ const STAGE := {"x": -16.0, "z": -9.5, "r": 5.0} # the ~/stage rug: stand here t
 
 static func on_stage(x: float, z: float) -> bool:
 	return Vector2(x - STAGE["x"], z - STAGE["z"]).length() <= STAGE["r"]
+
+
+## Inside the booth (past the doorway).
+static func in_booth(x: float, z: float) -> bool:
+	return x < BOOTH["x"] + BOOTH["w"] / 2.0 - 0.9 and x > BOOTH["x"] - BOOTH["w"] / 2.0 \
+		and absf(z - BOOTH["z"]) < BOOTH["d"] / 2.0
 
 
 static func clamp_to_room(p: Vector2) -> Vector2:

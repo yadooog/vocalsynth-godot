@@ -1,8 +1,7 @@
 extends Control
 ## Owns the synth and the sound output, and connects the side controls to it.
 
-const BASE_NOTE := 87.3071 # F2, left edge of the pitch pad
-const SEMITONES := 24
+const SEMITONES := VoiceMap.SEMITONES
 const MARKS := [0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0]
 
 var synth # PinkTrombone (untyped so this script still loads if the engine is missing)
@@ -106,6 +105,10 @@ func _ready() -> void:
 	%BeatGrid.beats = beats
 	%BeatClear.pressed.connect(beats.clear)
 	%LoopBeat.toggled.connect(_on_loop_beat_toggled)
+	song = preload("res://song/song.gd").new()
+	song.stage_parent = room
+	add_child(song)
+	_build_booth_ui()
 	character.position = Vector3(0, 0, 4)
 	cam_target = character.position
 	_on_mouth_moved(mouth_pad.value)
@@ -124,39 +127,24 @@ func _process(delta: float) -> void:
 	for b in [%EaseLinear, %EaseSmooth, %DeleteKey]:
 		b.disabled = sel == null
 	%KeyLabel.modulate.a = 1.0 if sel != null else 0.45
-	_walk(delta)
+	if booth_state == "room" or booth_state == "booth":
+		_walk(delta)
+	_update_booth(delta)
 	_update_camera(delta)
 	_update_stage()
-	character.update_character(delta, _face(), time)
+	var lp: float = beats.loop_position() if beats else 0.0
+	var solo := reveal_index if booth_state == "reveal" else -1
+	if song:
+		song.update(delta, lp, 1.0 if booth_state == "booth" else song_volume, time, solo)
+	if booth_state == "reveal":
+		# You mouth along to your section while it plays on its own.
+		character.update_character(delta, VoiceMap.face(song.sections[reveal_index]["synth"]), time)
+	else:
+		character.update_character(delta, _face(), time)
 
 
-# What the character's face should be doing, worked out from the synth's current settings.
 func _face() -> Dictionary:
-	if synth == null:
-		return {}
-	var octaves := log(maxf(20.0, synth.frequency) / 140.0) / log(2.0)
-	var tense: float = synth.tenseness
-	var level: float = synth.get_level()
-	var talking := 1.0 if level > 0.008 else 0.0
-	var loud := clampf((level - 0.03) / 0.08, 0.0, 1.0) * talking
-	var jaw: float = synth.jaw
-	var lips: float = synth.lips
-	var shut := lips < 0.08
-	var low := clampf((synth.get_tongue_diameter() - 2.05) / (3.5 - 2.05), 0.0, 1.0)
-	var open := 0.0 if shut else clampf((jaw - 0.25) * 1.6 + 0.25 * low, 0.0, 1.0)
-	return {
-		"open": open,
-		"size": clampf(log(maxf(0.25, synth.voice_size)) / log(2.0), -1.0, 1.0),
-		"lips": clampf(lips / 1.4, 0.0, 1.2),
-		"jaw": jaw,
-		"shut": shut,
-		"tilt": clampf(octaves * 0.18, -0.35, 0.35),
-		"brow": clampf(octaves * 0.9, -1.0, 1.5),
-		"talking": talking,
-		"loud": loud,
-		"angry": clampf((tense - 0.7) / 0.25, 0.0, 1.0) * loud,
-		"sad": clampf((0.45 - tense) / 0.35, 0.0, 1.0) if talking > 0.5 else 0.0,
-	}
+	return VoiceMap.face(synth)
 
 
 # ---------------------------------------------------------------- the stage
@@ -169,7 +157,8 @@ func _update_stage() -> void:
 		return
 	var x := character.position.x
 	var z := character.position.z
-	beats.set_volume(0.8 * beats.volume_at(Vector2(x - World.STAGE["x"], z - World.STAGE["z"]).length()))
+	song_volume = 0.8 * beats.volume_at(Vector2(x - World.STAGE["x"], z - World.STAGE["z"]).length())
+	beats.set_volume(0.8 if booth_state == "booth" else song_volume) # in the booth you hear it all on headphones
 	%BeatPanel.visible = World.on_stage(x, z)
 	var lp: float = beats.loop_position()
 	if loop_beat and interacting == 0 and not timeline.recording:
@@ -184,6 +173,188 @@ func _on_loop_beat_toggled(on: bool) -> void:
 	loop_beat = on
 	if not on and timeline.follow_clock:
 		timeline.stop()
+
+
+# ---------------------------------------------------------------- the booth
+# Walk into the booth to make your section of the song in private: the song and drums play
+# in your "headphones" and your phrase loops on the beat. Press done (or run out of time, or
+# walk out) and you're put on the stage: your section plays once on its own, then joins the
+# song, and a singer for it appears on the stage.
+
+const BOOTH_SECONDS := 60.0
+var song: Node
+var song_volume := 0.0
+var booth_state := "room"     # room, booth, reveal_wait, reveal
+var booth_left := 0.0
+var reveal_index := -1
+var _zoom_before := 1.0
+var _reveal_last_lp := 0.0
+var booth_bar: PanelContainer
+var booth_title: Label
+var booth_timer: Label
+var booth_button: Button
+var song_label: Label
+var spotlight: Node3D
+
+
+func _build_booth_ui() -> void:
+	booth_bar = PanelContainer.new()
+	booth_bar.theme_type_variation = &"TopBar"
+	booth_bar.visible = false
+	add_child(booth_bar)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	booth_bar.add_child(row)
+	booth_title = Label.new()
+	booth_title.theme_type_variation = &"BrandLabel"
+	row.add_child(booth_title)
+	booth_timer = Label.new()
+	booth_timer.theme_type_variation = &"DimLabel"
+	booth_timer.add_theme_font_size_override("font_size", 13)
+	row.add_child(booth_timer)
+	booth_button = Button.new()
+	booth_button.focus_mode = Control.FOCUS_NONE
+	booth_button.pressed.connect(_on_booth_button)
+	row.add_child(booth_button)
+	booth_bar.minimum_size_changed.connect(_place_booth_bar)
+	song_label = Label.new()
+	song_label.theme_type_variation = &"DimLabel"
+	song_label.add_theme_font_size_override("font_size", 13)
+	%TopBar.get_node("Row").add_child(song_label)
+	%TopBar.get_node("Row").move_child(song_label, 2)
+	# A soft beam of light for reveals.
+	spotlight = Node3D.new()
+	var beam := MeshInstance3D.new()
+	beam.mesh = room._cyl(0.25, 1.3, 7.0, 32)
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow.cull_mode = BaseMaterial3D.CULL_DISABLED
+	glow.albedo_color = Color(1.0, 0.96, 0.75, 0.22)
+	beam.material_override = glow
+	beam.position.y = 3.5
+	spotlight.add_child(beam)
+	var pool := MeshInstance3D.new()
+	pool.mesh = room._cyl(1.3, 1.3, 0.02, 40)
+	var pool_mat := glow.duplicate()
+	pool_mat.albedo_color = Color(1.0, 0.96, 0.75, 0.45)
+	pool.material_override = pool_mat
+	pool.position.y = 0.03
+	spotlight.add_child(pool)
+	spotlight.position = Vector3(World.REVEAL_SPOT.x, 0, World.REVEAL_SPOT.y)
+	spotlight.visible = false
+	room.add_child(spotlight)
+
+
+func _place_booth_bar() -> void:
+	booth_bar.size = booth_bar.get_combined_minimum_size()
+	booth_bar.position = Vector2((size.x - booth_bar.size.x) * 0.5, GAP)
+
+
+func _update_booth(delta: float) -> void:
+	if song == null:
+		return
+	song_label.text = "song %d/%d" % [song.sections.size(), song.MAX_SECTIONS]
+	var inside := World.in_booth(character.position.x, character.position.z)
+	match booth_state:
+		"room":
+			if inside:
+				_enter_booth()
+			else:
+				booth_bar.visible = false
+		"booth":
+			if song.is_full():
+				if not inside:
+					booth_state = "room"
+					zoom = _zoom_before
+					room.set_booth_busy(false)
+				return
+			booth_left -= delta
+			var secs := int(ceil(maxf(booth_left, 0.0)))
+			booth_timer.text = "%d:%02d" % [floori(secs / 60.0), secs % 60]
+			if booth_left <= 0.0 or not inside:
+				_finish_booth()
+		"reveal_wait", "reveal":
+			var lp: float = beats.loop_position()
+			if lp < _reveal_last_lp: # a new loop just started
+				if booth_state == "reveal_wait":
+					booth_state = "reveal"
+				else:
+					song.set_live(reveal_index)
+					booth_state = "room"
+					spotlight.visible = false
+					booth_bar.visible = false
+			_reveal_last_lp = lp
+
+
+func _enter_booth() -> void:
+	booth_state = "booth"
+	booth_bar.visible = true
+	booth_button.visible = true
+	room.set_booth_busy(true)
+	_zoom_before = zoom
+	zoom = 0.5
+	if song.is_full():
+		booth_title.text = "the song is full"
+		booth_timer.text = ""
+		booth_button.text = "new song"
+		_place_booth_bar()
+		return
+	booth_left = BOOTH_SECONDS
+	booth_title.text = "in the booth"
+	booth_button.text = "done"
+	timeline.stop()
+	timeline.clear()
+	%LoopBeat.button_pressed = true # your phrase loops in time with the song
+	_place_booth_bar()
+
+
+func _on_booth_button() -> void:
+	if booth_state != "booth":
+		return
+	if song.is_full():
+		song.clear()
+		_enter_booth()
+	else:
+		_finish_booth()
+
+
+func _finish_booth() -> void:
+	room.set_booth_busy(false)
+	zoom = _zoom_before
+	%LoopBeat.button_pressed = false
+	timeline.stop()
+	var keys: Array = timeline.keys.duplicate(true)
+	if keys.is_empty() or not keys.any(func(k): return k["f"]["voiced"]):
+		# Nothing to add: just step out.
+		booth_state = "room"
+		booth_bar.visible = false
+		_put_character(World.BOOTH_EXIT, PI / 2)
+		return
+	reveal_index = song.add_section(keys)
+	timeline.clear()
+	if reveal_index < 0:
+		booth_state = "room"
+		booth_bar.visible = false
+		_put_character(World.BOOTH_EXIT, PI / 2)
+		return
+	voicebox.set_closures([])
+	booth_title.text = "your section"
+	booth_timer.text = ""
+	booth_button.text = ""
+	booth_button.visible = false
+	_place_booth_bar()
+	_put_character(World.REVEAL_SPOT, 0.0)
+	spotlight.visible = true
+	booth_state = "reveal_wait"
+	_reveal_last_lp = beats.loop_position()
+
+
+func _put_character(p: Vector2, facing: float) -> void:
+	character.position = Vector3(p.x, 0, p.y)
+	character.rotation.y = facing
+	cam_target = character.position
+	stick = null
 
 
 # ---------------------------------------------------------------- walking and camera
@@ -326,6 +497,8 @@ walking: wasd / arrow keys, or press and drag on the room. scroll to zoom.
 
 the control pad: drag the tongue in its slice, press along the tube to close it, use the pitch and mouth pads and the size slider. with a key selected, that edits the key.
 
+the booth: walk into the booth next to the stage to make your section of the song. the song plays in your headphones and your phrase loops on the beat. press done and you're revealed on the stage: your section plays on its own, then joins the song.
+
 the beat: the drums play on the stage at 120 bpm. a phrase is 4 seconds = 2 bars, so loop on beat repeats yours in time with the drums. stand on the stage to change the beat.
 
 keys: space play · l loop · r record · h hold sound · b loop on beat · k add key · [ ] step keys · delete removes a key · esc deselect
@@ -336,8 +509,8 @@ pink trombone by neil thapen (2017), modular version by christian d'heureuse. mi
 func _on_pitch_moved(v: Vector2) -> void:
 	if not synth:
 		return
-	synth.frequency = BASE_NOTE * pow(2.0, SEMITONES * v.x / 12.0)
-	synth.tenseness = 1.0 - cos((1.0 - v.y) * PI / 2.0) # top = tense, bottom = breathy
+	synth.frequency = VoiceMap.frequency(v.x)
+	synth.tenseness = VoiceMap.tenseness(v.y)
 
 
 func _on_interact(on: bool) -> void:
@@ -369,7 +542,7 @@ func _on_mouth_moved(v: Vector2) -> void:
 
 func _on_size_moved(v: Vector2) -> void:
 	if synth:
-		synth.voice_size = 0.5 * pow(4.0, 1.0 - v.y) # slider up = giant (2), middle = 1, down = tiny (0.5)
+		synth.voice_size = VoiceMap.voice_size(v.y)
 
 
 # ---------------------------------------------------------------- timeline
