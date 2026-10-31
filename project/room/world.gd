@@ -32,12 +32,10 @@ const OBSTACLES := [
 	{"shape": "box", "x": 20.4, "z": -12.6, "w": 2.0, "d": 2.0, "kind": "crate"},
 	{"shape": "box", "x": 19.0, "z": -9.8, "w": 2.0, "d": 2.0, "kind": "crate"},
 	{"shape": "box", "x": 6.0, "z": 15.0, "w": 8.0, "d": 1.6, "kind": "table"},
-	# The booth, left of the stage: low walls with a door facing the stage.
+	# The booth, left of the stage: low walls, open on the side facing the stage.
 	{"shape": "box", "x": -27.85, "z": -9.5, "w": 0.3, "d": 4.0, "kind": "booth"},
 	{"shape": "box", "x": -26.0, "z": -11.35, "w": 4.0, "d": 0.3, "kind": "booth"},
 	{"shape": "box", "x": -26.0, "z": -7.65, "w": 4.0, "d": 0.3, "kind": "booth"},
-	{"shape": "box", "x": -24.15, "z": -11.05, "w": 0.3, "d": 0.9, "kind": "booth"},
-	{"shape": "box", "x": -24.15, "z": -7.95, "w": 0.3, "d": 0.9, "kind": "booth"},
 ]
 
 # The booth: step inside to make your section of the song in private.
