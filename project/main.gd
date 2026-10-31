@@ -109,6 +109,7 @@ func _ready() -> void:
 	song.stage_parent = room
 	add_child(song)
 	_build_booth_ui()
+	_setup_say_and_board()
 	character.position = Vector3(0, 0, 4)
 	# For testing the web build: index.html?spawn=booth starts you at the booth.
 	if OS.has_feature("web") and str(JavaScriptBridge.eval("location.search")).contains("spawn=booth"):
@@ -132,6 +133,7 @@ func _process(delta: float) -> void:
 	%KeyLabel.modulate.a = 1.0 if sel != null else 0.45
 	if booth_state == "room" or booth_state == "booth":
 		_walk(delta)
+	_update_preview(delta)
 	_update_booth(delta)
 	_update_camera(delta)
 	_update_stage()
@@ -176,6 +178,139 @@ func _on_loop_beat_toggled(on: bool) -> void:
 	loop_beat = on
 	if not on and timeline.follow_clock:
 		timeline.stop()
+
+
+# ---------------------------------------------------------------- say box and soundboard
+# Type something and press enter (or say!): it becomes a phrase and plays. The grid under it
+# is your own soundboard: + saves the control pad as a pad. Clicking a pad sets the selected
+# key to that sound, or adds a key with it at the playhead and steps on, so tapping pads
+# spells out a phrase. Right-click a pad to remove it. Pads are kept between sessions.
+
+const PRESET_STEP := 0.25     # seconds the playhead moves on after adding a key from a pad
+const MAX_PRESETS := 16
+const PRESETS_FILE := "user://soundboard.json"
+const PREVIEW_SECONDS := 0.3
+var presets: Array = []
+var _preview_left := 0.0
+
+
+func _setup_say_and_board() -> void:
+	var say: LineEdit = %SayText
+	say.editable = true
+	say.focus_mode = Control.FOCUS_CLICK
+	say.mouse_filter = Control.MOUSE_FILTER_STOP
+	say.tooltip_text = "type something to say, then press enter"
+	say.text_submitted.connect(func(_text): _say())
+	%SayButton.disabled = false
+	%SayButton.tooltip_text = "say it (enter)"
+	%SayButton.pressed.connect(_say)
+	_load_presets()
+	_rebuild_board()
+
+
+func _say() -> void:
+	%SayText.release_focus()
+	if synth == null:
+		return
+	var keys := Speak.text_to_keys(%SayText.text, capture_frame())
+	if keys.is_empty():
+		return
+	timeline.set_keys(keys)
+	timeline.play()
+
+
+func _rebuild_board() -> void:
+	var grid: Control = %Shapes
+	for c in grid.get_children():
+		grid.remove_child(c)
+		c.queue_free()
+	for i in MAX_PRESETS:
+		var b := Button.new()
+		b.theme_type_variation = &"ChipButton"
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		b.focus_mode = Control.FOCUS_NONE
+		if i < presets.size():
+			b.text = str(i + 1)
+			b.tooltip_text = "click: use this sound · right-click: remove it"
+			b.pressed.connect(_use_preset.bind(i))
+			b.gui_input.connect(_on_preset_input.bind(i))
+		elif i == presets.size():
+			b.text = "+"
+			b.tooltip_text = "save the control pad as a sound"
+			b.pressed.connect(_add_preset)
+		else:
+			b.disabled = true
+		grid.add_child(b)
+
+
+func _add_preset() -> void:
+	if synth == null or presets.size() >= MAX_PRESETS:
+		return
+	presets.append(capture_frame(true))
+	_save_presets()
+	_rebuild_board()
+
+
+func _use_preset(i: int) -> void:
+	if i >= presets.size():
+		return
+	var f: Dictionary = presets[i].duplicate(true)
+	if timeline.playing or timeline.recording:
+		timeline.stop()
+	if timeline.selected != null:
+		timeline.update_selected(f)
+	else:
+		var at: float = timeline.t
+		timeline.add_key(f, at)
+		timeline.deselect()
+		timeline.t = minf(Phrase.DURATION, at + PRESET_STEP)
+		timeline.queue_redraw()
+	_preview(f)
+
+
+func _on_preset_input(event: InputEvent, i: int) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		presets.remove_at(i)
+		_save_presets()
+		_rebuild_board.call_deferred()
+
+
+# Sound a pose briefly, so you hear what a pad does.
+func _preview(f: Dictionary) -> void:
+	apply_frame(f)
+	if synth:
+		synth.voice_held = true
+	_preview_left = PREVIEW_SECONDS
+
+
+func _update_preview(delta: float) -> void:
+	if _preview_left <= 0.0:
+		return
+	_preview_left -= delta
+	if _preview_left <= 0.0 and not timeline.playing:
+		voicebox.set_closures([])
+		_update_voicing()
+
+
+func _save_presets() -> void:
+	var file := FileAccess.open(PRESETS_FILE, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(presets))
+
+
+func _load_presets() -> void:
+	presets.clear()
+	if not FileAccess.file_exists(PRESETS_FILE):
+		return
+	var data = JSON.parse_string(FileAccess.get_file_as_string(PRESETS_FILE))
+	if data is Array:
+		for f in data:
+			if f is Dictionary and f.has_all(["px", "py", "mx", "my", "sz", "ti", "td"]):
+				f["voiced"] = bool(f.get("voiced", true))
+				presets.append(f)
+				if presets.size() >= MAX_PRESETS:
+					break
 
 
 # ---------------------------------------------------------------- the booth
@@ -378,6 +513,8 @@ var _last_loop_pos := 0.0
 
 
 func _on_view_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		%SayText.release_focus()
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			stick = [event.position, event.position] if event.pressed else null
@@ -397,6 +534,8 @@ func _on_view_input(event: InputEvent) -> void:
 
 func _walk_input() -> Vector2:
 	var d := Vector2.ZERO
+	if get_viewport().gui_get_focus_owner() is LineEdit: # typing, not walking
+		return _stick_input()
 	if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_A):
 		d.x -= 1.0
 	if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
@@ -405,11 +544,16 @@ func _walk_input() -> Vector2:
 		d.y -= 1.0
 	if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
 		d.y += 1.0
-	if stick != null:
-		var s: Vector2 = (stick[1] - stick[0]) / JOYSTICK_RANGE
-		if s.length() > 0.15:
-			d += s / s.length() * minf(1.0, s.length())
-	return d.limit_length(1.0)
+	return (d + _stick_input()).limit_length(1.0)
+
+
+func _stick_input() -> Vector2:
+	if stick == null:
+		return Vector2.ZERO
+	var s: Vector2 = (stick[1] - stick[0]) / JOYSTICK_RANGE
+	if s.length() <= 0.15:
+		return Vector2.ZERO
+	return s / s.length() * minf(1.0, s.length())
 
 
 func _walk(delta: float) -> void:
@@ -499,6 +643,10 @@ const HELP := """getting started: drag on the voice box to make a sound. press r
 walking: wasd / arrow keys, or press and drag on the room. scroll to zoom.
 
 the control pad: drag the tongue in its slice, press along the tube to close it, use the pitch and mouth pads and the size slider. with a key selected, that edits the key.
+
+the say box: type something and press enter. it becomes a phrase you can tweak.
+
+your soundboard: + saves the control pad as a pad. click a pad to set the selected key to it, or to add a key at the playhead and step on, so tapping pads spells out a phrase. right-click a pad to remove it.
 
 the booth: walk into the booth next to the stage to make your section of the song. the song plays in your headphones and your phrase loops on the beat. press done and you're revealed on the stage: your section plays on its own, then joins the song.
 

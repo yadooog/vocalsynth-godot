@@ -113,6 +113,32 @@ func _initialize() -> void:
 		main.song.set_live(0)
 		main.song.update(0.016, 1.0, 1.0, 1.0)
 		print("ok: booth adds a section to the song")
+		# Say box: words become keys.
+		for w in ["hello", "banana", "squelch", "tongues"]:
+			if Pronounce.pronounce(w).is_empty():
+				printerr("FAIL: could not pronounce %s" % w)
+				ok = false
+		var said := Speak.text_to_keys("Hello there, how are YOU?", main.capture_frame())
+		if said.size() < 10 or said[said.size() - 1]["t"] > Phrase.DURATION:
+			printerr("FAIL: say box made %d keys" % said.size())
+			ok = false
+		main.get_node("%SayText").text = "mama mia!"
+		main._say()
+		if tl.keys.is_empty() or not tl.playing:
+			printerr("FAIL: say box did not play")
+			ok = false
+		print("ok: say box made %d keys for a sentence" % said.size())
+		# Soundboard: save a pad, use it to add a key.
+		main.presets.clear()
+		main._add_preset()
+		tl.set_keys([])
+		main._use_preset(0)
+		if main.presets.size() != 1 or tl.keys.size() != 1:
+			printerr("FAIL: soundboard did not add a key (%d presets, %d keys)" % [main.presets.size(), tl.keys.size()])
+			ok = false
+		main.presets.clear()
+		main._save_presets()
+		print("ok: soundboard")
 
 	quit(0 if ok else 1)
 

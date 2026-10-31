@@ -273,6 +273,16 @@ func add_key(frame: Dictionary, at: float = -1.0) -> void:
 	queue_redraw()
 
 
+## Replaces the whole phrase (from the say box).
+func set_keys(new_keys: Array) -> void:
+	stop()
+	keys = new_keys.duplicate(true)
+	_sort_keys()
+	selected = null
+	t = 0.0
+	queue_redraw()
+
+
 func delete_selected() -> void:
 	if selected != null:
 		keys.erase(selected)
