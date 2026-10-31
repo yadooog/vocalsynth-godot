@@ -522,6 +522,7 @@ func _press(pos: Vector2, double: bool) -> void:
 	if recording:
 		return
 	if pos.y < RULER:
+		selected = null # moving the playhead lets go of the key, so the controls don't keep editing it
 		_start_scrub(pos)
 		return
 	if pos.y < RULER + KEYS_ROW:
@@ -536,6 +537,7 @@ func _press(pos: Vector2, double: bool) -> void:
 			add_key(fresh, snap_time(_time_at(pos.x)))
 			frame_changed.emit(selected["f"])
 		else:
+			selected = null
 			_start_scrub(pos)
 		return
 	var lane := int((pos.y - RULER - KEYS_ROW) / LANE_H)
