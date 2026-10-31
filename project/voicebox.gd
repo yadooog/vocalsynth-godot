@@ -222,7 +222,8 @@ func _draw() -> void:
 	_draw_tract()
 	if SHOW_ZONES:
 		_draw_zones()
-	Motion.draw_closures(self, timeline, func(v): return polar(v.x, v.y))
+	# Nose closures (m, n from the say box) go below 0; draw them on the roof, inside the tube.
+	Motion.draw_closures(self, timeline, func(v): return polar(v.x, maxf(v.y, 0.0)))
 	Motion.draw(self, timeline, "ti", "td", func(v): return polar(v.x, v.y))
 
 
