@@ -50,7 +50,11 @@ jobs:
           timeout 240 ./godot --headless --path project -s res://tests/smoke_test.gd > smoke.log 2>&1 || echo "smoke test exited with $?"
           head -c 20000 smoke.log
           # (a bare "! grep" never fails a step, so check explicitly)
-          if grep -E "SCRIPT ERROR|Parse Error|ERROR:|FAIL:" smoke.log; then echo "smoke test found errors"; exit 1; fi
+          # Headless Godot has no real meshes, so updating the tongue mesh logs this every frame: ignore it.
+          grep -v 'Parameter "m" is null' smoke.log > smoke.filtered.log || true
+          echo "---- results ----"
+          grep -E "^ok:|^info:|FAIL:|SCRIPT ERROR|Parse Error|ERROR:" smoke.filtered.log | head -60 || true
+          if grep -qE "SCRIPT ERROR|Parse Error|ERROR:|FAIL:" smoke.filtered.log; then echo "smoke test found errors"; exit 1; fi
           grep -q "character runs" smoke.log
           grep -q "ok: soundboard" smoke.log
 
