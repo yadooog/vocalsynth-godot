@@ -110,6 +110,9 @@ func _ready() -> void:
 	add_child(song)
 	_build_booth_ui()
 	character.position = Vector3(0, 0, 4)
+	# For testing the web build: index.html?spawn=booth starts you at the booth.
+	if OS.has_feature("web") and str(JavaScriptBridge.eval("location.search")).contains("spawn=booth"):
+		character.position = Vector3(World.BOOTH_EXIT.x, 0, World.BOOTH_EXIT.y)
 	cam_target = character.position
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
