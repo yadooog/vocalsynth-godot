@@ -95,7 +95,13 @@ func _ready() -> void:
 	%AddKey.pressed.connect(func(): timeline.add_key(capture_frame(true)))
 	%DeleteKey.pressed.connect(timeline.delete_selected)
 	%ClearKeys.pressed.connect(timeline.clear)
-	character.get_parent().add_child(preload("res://room/room.gd").new())
+	room = preload("res://room/room.gd").new()
+	character.get_parent().add_child(room)
+	beats = preload("res://room/beats.gd").new()
+	add_child(beats)
+	beats.stepped.connect(func(_step, hits): if hits.has(0): room.thump())
+	%BeatGrid.beats = beats
+	%LoopBeat.toggled.connect(_on_loop_beat_toggled)
 	character.position = Vector3(0, 0, 4)
 	cam_target = character.position
 	_on_mouth_moved(mouth_pad.value)
@@ -108,6 +114,7 @@ func _process(delta: float) -> void:
 	%EaseSmooth.set_pressed_no_signal(sel != null and sel["ease"] == "smooth")
 	_walk(delta)
 	_update_camera(delta)
+	_update_stage()
 	character.update_character(delta, _face(), time)
 
 
@@ -140,6 +147,33 @@ func _face() -> Dictionary:
 	}
 
 
+# ---------------------------------------------------------------- the stage
+# Drums play from the stage, louder the closer you are; the step sequencer shows while
+# you stand on ~/stage. "Loop on beat" starts your phrase on every downbeat (a phrase is
+# 4 s = exactly 2 bars at 120 bpm), so it stays in time with the drums.
+
+func _update_stage() -> void:
+	if beats == null:
+		return
+	var x := character.position.x
+	var z := character.position.z
+	beats.set_volume(0.8 * beats.volume_at(Vector2(x - World.STAGE["x"], z - World.STAGE["z"]).length()))
+	%BeatGrid.visible = World.on_stage(x, z)
+	var lp: float = beats.loop_position()
+	if loop_beat and interacting == 0 and not timeline.recording:
+		if timeline.follow_clock:
+			timeline.t = lp
+		elif lp < _last_loop_pos: # a new loop just started
+			timeline.play_on_clock(lp)
+	_last_loop_pos = lp
+
+
+func _on_loop_beat_toggled(on: bool) -> void:
+	loop_beat = on
+	if not on and timeline.follow_clock:
+		timeline.stop()
+
+
 # ---------------------------------------------------------------- walking and camera
 # Walk with WASD / arrow keys, or press and drag anywhere in the room (a floating joystick).
 # Scroll to zoom. The camera follows from above and behind, like the web game.
@@ -151,6 +185,10 @@ var stick = null               # [origin, current] while dragging in the room
 var zoom := 0.6
 var zoom_shown := 0.6
 var cam_target := Vector3.ZERO
+var room: Node3D
+var beats: Node
+var loop_beat := false
+var _last_loop_pos := 0.0
 
 
 func _on_view_input(event: InputEvent) -> void:
@@ -323,6 +361,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			%HoldButton.button_pressed = not %HoldButton.button_pressed
 		KEY_L:
 			%LoopButton.button_pressed = not %LoopButton.button_pressed
+		KEY_B:
+			%LoopBeat.button_pressed = not %LoopBeat.button_pressed
 		KEY_R:
 			%RecButton.button_pressed = not %RecButton.button_pressed
 		KEY_DELETE, KEY_BACKSPACE:

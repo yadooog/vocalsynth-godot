@@ -55,6 +55,7 @@ var t := 0.0                 # playhead
 var playing := false
 var recording := false
 var looping := true
+var follow_clock := false   # "loop on beat": the beat clock moves the playhead
 
 var _samples: Array = []
 var _next_sample := 0.0
@@ -310,9 +311,21 @@ func clear() -> void:
 
 # ---------------------------------------------------------------- transport
 
+## Start playing in time with the beat clock (main.gd sets `t` every frame).
+func play_on_clock(at: float) -> void:
+	if keys.is_empty() or recording:
+		return
+	t = at
+	follow_clock = true
+	if not playing:
+		playing = true
+		playing_changed.emit(true)
+
+
 func play() -> void:
 	if keys.is_empty():
 		return
+	follow_clock = false
 	recording = false
 	recording_changed.emit(false)
 	playing = true
@@ -320,6 +333,7 @@ func play() -> void:
 
 
 func stop() -> void:
+	follow_clock = false
 	if playing:
 		playing = false
 		playing_changed.emit(false)
@@ -347,6 +361,8 @@ func _process(delta: float) -> void:
 			_next_sample += RECORD_STEP
 		if t >= DURATION:
 			_finish_recording()
+	elif playing and follow_clock:
+		frame_changed.emit(sample(t)) # t is set from the beat clock by main.gd
 	elif playing:
 		t += delta
 		if t >= DURATION:
@@ -543,6 +559,7 @@ func _select(k: Dictionary) -> void:
 
 
 func stop_playing_only() -> void:
+	follow_clock = false
 	if playing:
 		playing = false
 		playing_changed.emit(false)

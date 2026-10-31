@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://main.gd" id="1"]
 [ext_resource type="Script" path="res://voicebox.gd" id="2"]
 [ext_resource type="Script" path="res://xy_pad.gd" id="3"]
 [ext_resource type="Script" path="res://character/character.gd" id="4"]
 [ext_resource type="Script" path="res://timeline.gd" id="5"]
+[ext_resource type="Script" path="res://room/beat_grid.gd" id="6"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -121,6 +122,13 @@ fov = 42.0
 unique_name_in_owner = true
 script = ExtResource("4")
 
+[node name="BeatGrid" type="Control" parent="Layout/Right"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 0
+script = ExtResource("6")
+
 [node name="Toolbar" type="HFlowContainer" parent="Layout/Right"]
 layout_mode = 2
 theme_override_constants/separation = 8
@@ -157,6 +165,14 @@ toggle_mode = true
 button_pressed = true
 tooltip_text = "loop (L)"
 text = "loop"
+
+[node name="LoopBeat" type="Button" parent="Layout/Right/Toolbar"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+tooltip_text = "loop your phrase in time with the drums (B)"
+text = "loop on beat"
 
 [node name="EaseSmooth" type="Button" parent="Layout/Right/Toolbar"]
 unique_name_in_owner = true

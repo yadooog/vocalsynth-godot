@@ -14,8 +14,24 @@ const LEAF_DARK := Color("#86c79a")
 const WALL := Color("#e4dcf2")
 
 
+var speakers: Array = []   # [box, cone] pairs that bounce on the kick drum
+var _thump := 0.0
+
+
 func _ready() -> void:
 	_build()
+
+
+## The kick drum just hit: make the speakers bounce.
+func thump() -> void:
+	_thump = 1.0
+
+
+func _process(delta: float) -> void:
+	_thump *= exp(-delta / 0.09)
+	for s in speakers:
+		s[0].scale = Vector3(1.0 + 0.06 * _thump, 1.0 - 0.04 * _thump, 1.0 + 0.06 * _thump)
+		s[1].scale = Vector3.ONE * (1.0 + 0.25 * _thump)
 
 
 func _mat(color: Color, outline := false, width := 0.04) -> ShaderMaterial:
@@ -150,6 +166,7 @@ func _build() -> void:
 					cone.rotation.x = PI / 2
 					cone.position = Vector3(0, -0.3, 0.61)
 					spk.add_child(cone)
+					speakers.append([spk, cone])
 			"crate":
 				_put(_box(Vector3(o["w"], o["w"], o["d"])), wood, Vector3(x, o["w"] / 2.0, z))
 			"table":
