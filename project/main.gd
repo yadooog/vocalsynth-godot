@@ -17,7 +17,6 @@ var synth # PinkTrombone (untyped so this script still loads if the engine is mi
 @onready var timeline: Control = %Timeline
 
 var time := 0.0
-var steering := false
 var interacting := 0   # fingers currently on the control pad
 var hold_on := false   # keep sounding the current pose
 
@@ -96,7 +95,9 @@ func _ready() -> void:
 	%AddKey.pressed.connect(func(): timeline.add_key(capture_frame(true)))
 	%DeleteKey.pressed.connect(timeline.delete_selected)
 	%ClearKeys.pressed.connect(timeline.clear)
-	camera.look_at_from_position(Vector3(0, 2.5, 9.0), Vector3(0, 2.0, 0))
+	character.get_parent().add_child(preload("res://room/room.gd").new())
+	character.position = Vector3(0, 0, 4)
+	cam_target = character.position
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
 
@@ -105,7 +106,8 @@ func _process(delta: float) -> void:
 	time += delta
 	var sel = timeline.selected
 	%EaseSmooth.set_pressed_no_signal(sel != null and sel["ease"] == "smooth")
-	_keyboard_walk()
+	_walk(delta)
+	_update_camera(delta)
 	character.update_character(delta, _face(), time)
 
 
@@ -138,41 +140,75 @@ func _face() -> Dictionary:
 	}
 
 
-# Click or drag in the character's area to make it walk there; arrow keys / WASD work too.
+# ---------------------------------------------------------------- walking and camera
+# Walk with WASD / arrow keys, or press and drag anywhere in the room (a floating joystick).
+# Scroll to zoom. The camera follows from above and behind, like the web game.
+
+const JOYSTICK_RANGE := 60.0   # px of drag for full speed
+const ZOOM_MIN := 0.22         # closest: about face height
+const ZOOM_MAX := 1.8          # furthest out
+var stick = null               # [origin, current] while dragging in the room
+var zoom := 0.6
+var zoom_shown := 0.6
+var cam_target := Vector3.ZERO
+
+
 func _on_view_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		steering = event.pressed
-		if event.pressed:
-			_walk_towards(event.position)
-	elif event is InputEventMouseMotion and steering:
-		_walk_towards(event.position)
-	elif event is InputEventScreenTouch and event.pressed:
-		_walk_towards(event.position)
-	elif event is InputEventScreenDrag:
-		_walk_towards(event.position)
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			stick = [event.position, event.position] if event.pressed else null
+		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			zoom = clampf(zoom * 0.9, ZOOM_MIN, ZOOM_MAX)
+		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			zoom = clampf(zoom / 0.9, ZOOM_MIN, ZOOM_MAX)
+	elif event is InputEventMouseMotion and stick != null:
+		stick[1] = event.position
+	elif event is InputEventScreenTouch:
+		stick = [event.position, event.position] if event.pressed else null
+	elif event is InputEventScreenDrag and stick != null:
+		stick[1] = event.position
+	elif event is InputEventMagnifyGesture:
+		zoom = clampf(zoom / event.factor, ZOOM_MIN, ZOOM_MAX)
 
 
-func _walk_towards(pos: Vector2) -> void:
-	var from := camera.project_ray_origin(pos)
-	var dir := camera.project_ray_normal(pos)
-	var hit = Plane(Vector3.UP, 0.0).intersects_ray(from, dir)
-	if hit != null:
-		character.walk_to(Vector3(clampf(hit.x, -0.7, 0.7), 0.0, clampf(hit.z, -1.0, 0.8)))
-
-
-func _keyboard_walk() -> void:
-	var dir := Vector3.ZERO
+func _walk_input() -> Vector2:
+	var d := Vector2.ZERO
 	if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_A):
-		dir.x -= 1.0
+		d.x -= 1.0
 	if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
-		dir.x += 1.0
+		d.x += 1.0
 	if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
-		dir.z -= 1.0
+		d.y -= 1.0
 	if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
-		dir.z += 1.0
-	if dir != Vector3.ZERO:
-		var p: Vector3 = character.position + dir.normalized() * 0.5
-		character.walk_to(Vector3(clampf(p.x, -0.7, 0.7), 0.0, clampf(p.z, -1.0, 0.8)))
+		d.y += 1.0
+	if stick != null:
+		var s: Vector2 = (stick[1] - stick[0]) / JOYSTICK_RANGE
+		if s.length() > 0.15:
+			d += s / s.length() * minf(1.0, s.length())
+	return d.limit_length(1.0)
+
+
+func _walk(delta: float) -> void:
+	var input := _walk_input()
+	if input.length() < 0.01:
+		character.drive_speed = 0.0
+		return
+	var p := Vector2(character.position.x, character.position.z)
+	var np := World.step(p, input, delta)
+	character.position = Vector3(np.x, 0.0, np.y)
+	character.drive_speed = (np - p).length() / maxf(delta, 1e-3)
+	character.rotation.y = lerp_angle(character.rotation.y, atan2(input.x, input.y), 1.0 - exp(-14.0 * delta))
+
+
+func _update_camera(delta: float) -> void:
+	cam_target = cam_target.lerp(Vector3(character.position.x, 0, character.position.z), 1.0 - exp(-5.0 * delta))
+	zoom_shown += (zoom - zoom_shown) * (1.0 - exp(-12.0 * delta))
+	var z := zoom_shown
+	var back := 17.0 * z
+	var near := smoothstep(0.0, 1.0, (1.0 - z) / (1.0 - ZOOM_MIN))
+	var up := 0.95 - 0.7 * near
+	var look_y := 1.4 + 0.9 * near
+	camera.look_at_from_position(Vector3(cam_target.x, look_y * near + back * up, cam_target.z + back), Vector3(cam_target.x, look_y, cam_target.z))
 
 
 func _on_pitch_moved(v: Vector2) -> void:

@@ -114,6 +114,7 @@ var last_ry := 0.0
 var have_last := false
 var walk := 0.0                       # 0 standing .. 1 full speed
 var walk_target = null                # Vector3 or null
+var drive_speed := 0.0                # set by whoever moves the character directly (units/s)
 var head_sx := 1.0                    # current head width / height factors (springy)
 var head_sy := 1.0
 var head_sx_v := 0.0
@@ -413,6 +414,7 @@ func _physics_process(delta: float) -> void:
 			var want: float = minf(3.2, dist * 3.0)
 			position += to / dist * minf(want * delta, dist)
 			speed = want
+	speed = maxf(speed, drive_speed)
 	walk = lerpf(walk, clampf(speed / 3.2, 0.0, 1.0), 1.0 - exp(-10.0 * delta))
 
 
