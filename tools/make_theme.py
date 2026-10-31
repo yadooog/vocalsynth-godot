@@ -73,7 +73,7 @@ p("BigButton/base_type", '&"Button"')
 button("BigButton",
        box("bg_n", c(INK), my=10, mx=4), box("bg_h", c('#444444'), my=10, mx=4),
        box("bg_p", c(RED), my=10, mx=4), box("bg_d", c(INK, 0.35), my=10, mx=4),
-       c(WHITE), c(WHITE), c(PAPER), size=15)
+       c(WHITE), c(WHITE), c(PAPER), size=13)
 # Letter buttons.
 p("ChipButton/base_type", '&"Button"')
 button("ChipButton",

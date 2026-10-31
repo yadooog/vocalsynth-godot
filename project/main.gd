@@ -194,8 +194,8 @@ const JOYSTICK_RANGE := 60.0   # px of drag for full speed
 const ZOOM_MIN := 0.22         # closest: about face height
 const ZOOM_MAX := 1.8          # furthest out
 var stick = null               # [origin, current] while dragging in the room
-var zoom := 0.6
-var zoom_shown := 0.6
+var zoom := 1.0
+var zoom_shown := 1.0
 var cam_target := Vector3.ZERO
 var room: Node3D
 var beats: Node

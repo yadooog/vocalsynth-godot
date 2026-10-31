@@ -639,7 +639,7 @@ func _draw() -> void:
 		var top := _lane_top(i)
 		if i > 0:
 			draw_line(Vector2(0, top), Vector2(w, top), Color(INK, 0.15), 1.0)
-		draw_string(font, Vector2(w - 6, top + 14), _lanes[i]["label"], HORIZONTAL_ALIGNMENT_RIGHT, w - 12, 11, Color(INK, 0.55))
+		draw_string(font, Vector2(6, top + 14), _lanes[i]["label"], HORIZONTAL_ALIGNMENT_RIGHT, w - 12, 11, Color(INK, 0.55))
 		if keys.is_empty():
 			continue
 		var pts := PackedVector2Array()
