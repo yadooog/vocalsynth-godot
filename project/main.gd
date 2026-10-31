@@ -230,6 +230,7 @@ func _rebuild_board() -> void:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.clip_text = true
 		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size.y = 40 # empty pads keep the grid's height
 		if i < presets.size():
 			b.text = str(i + 1)
 			b.tooltip_text = "click: use this sound · right-click: remove it"
