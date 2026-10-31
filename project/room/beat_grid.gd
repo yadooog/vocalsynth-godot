@@ -2,18 +2,19 @@ extends Control
 ## The step sequencer on ~/stage: a row of 16 steps for each drum. Click a step to turn it
 ## on or off. The step playing now is outlined. `beats` is set by main.gd.
 
-const INK := Color(0.133, 0.133, 0.125)
-const PAPER := Color(0.969, 0.957, 0.933)
-const PAD := Color(0.925, 0.91, 0.875)
-const LABEL_W := 54.0
-const ROW_H := 26.0
+const INK := Color(0.149, 0.149, 0.149)
+const EDGE := Color(0, 0, 0, 0.35)
+const DIM := Color(0.42, 0.42, 0.42)
+const RED := Color(0.894, 0.341, 0.18)
+const LABEL_W := 40.0
+const ROW_H := 23.0
 const GAP := 3.0
 
 var beats: Node = null
 
 
 func _ready() -> void:
-	custom_minimum_size.y = 4 * ROW_H + 8.0
+	custom_minimum_size.y = 4 * ROW_H
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 
@@ -22,10 +23,12 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 
+# Like the web grid: a little gap every beat, a bigger one every bar.
 func _cell_rect(drum: int, step: int) -> Rect2:
-	var w := (size.x - LABEL_W - 12.0) / 16.0
-	var x := LABEL_W + step * w + (6.0 if step >= 8 else 0.0) # a gap between the two bars
-	return Rect2(x + GAP / 2, 4.0 + drum * ROW_H + GAP / 2, w - GAP, ROW_H - GAP)
+	var gaps := 12.0
+	var w := (size.x - LABEL_W - gaps) / 16.0
+	var x := LABEL_W + step * w + int(step / 4.0) * 2.0 + (6.0 if step >= 8 else 0.0)
+	return Rect2(x + GAP / 2, drum * ROW_H + GAP / 2, w - GAP, ROW_H - GAP)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -49,14 +52,16 @@ func _gui_input(event: InputEvent) -> void:
 func _draw() -> void:
 	if beats == null:
 		return
-	draw_rect(Rect2(Vector2.ZERO, size), PAPER)
-	draw_rect(Rect2(Vector2.ZERO, size), INK, false, 1.0)
-	var font := ThemeDB.fallback_font
+	var font := get_theme_default_font()
 	var now: int = beats.current_step()
+	var cell := StyleBoxFlat.new()
+	cell.set_corner_radius_all(3)
+	cell.anti_aliasing = true
 	for drum in beats.DRUMS.size():
-		draw_string(font, Vector2(8, 4.0 + drum * ROW_H + ROW_H * 0.68), beats.DRUMS[drum], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(INK, 0.6))
+		draw_string(font, Vector2(0, drum * ROW_H + ROW_H * 0.68), beats.DRUMS[drum], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, DIM)
 		for step in beats.STEPS:
-			var r := _cell_rect(drum, step)
 			var on: bool = beats.pattern[drum][step]
-			draw_rect(r, INK if on else (PAD if step % 4 < 2 else PAPER))
-			draw_rect(r, INK, false, 2.0 if step == now else 1.0)
+			cell.bg_color = INK if on else Color(0, 0, 0, 0)
+			cell.border_color = RED if step == now else (INK if on else EDGE)
+			cell.set_border_width_all(2 if step == now else 1)
+			draw_style_box(cell, _cell_rect(drum, step))

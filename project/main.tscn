@@ -8,50 +8,145 @@
 [ext_resource type="Script" path="res://room/beat_grid.gd" id="6"]
 
 [node name="Main" type="Control"]
+script = ExtResource("1")
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1")
+mouse_filter = 2
 
-[node name="Layout" type="HBoxContainer" parent="."]
+[node name="CharacterView" type="SubViewportContainer" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = 24.0
-offset_right = -24.0
-offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 24
+mouse_filter = 0
+stretch = true
 
-[node name="Left" type="HBoxContainer" parent="Layout"]
-custom_minimum_size = Vector2(440, 0)
+[node name="SubViewport" type="SubViewport" parent="CharacterView"]
+transparent_bg = true
+handle_input_locally = false
+msaa_3d = 2
+size = Vector2i(1280, 720)
+render_target_update_mode = 4
+
+[node name="Camera" type="Camera3D" parent="CharacterView/SubViewport"]
+unique_name_in_owner = true
+fov = 42.0
+
+[node name="Character" type="Node3D" parent="CharacterView/SubViewport"]
+unique_name_in_owner = true
+script = ExtResource("4")
+
+[node name="TopBar" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+theme_type_variation = &"TopBar"
+
+[node name="Row" type="HBoxContainer" parent="TopBar"]
 layout_mode = 2
-size_flags_vertical = 0
+theme_override_constants/separation = 10
+
+[node name="Brand" type="Label" parent="TopBar/Row"]
+layout_mode = 2
+theme_type_variation = &"BrandLabel"
+text = "vocal cord game"
+
+[node name="Online" type="Label" parent="TopBar/Row"]
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+theme_override_font_sizes/font_size = 13
+text = "1 online"
+
+[node name="HelpButton" type="Button" parent="TopBar/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "?"
+theme_type_variation = &"IconButton"
+tooltip_text = "help"
+
+[node name="BeatPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+
+[node name="Box" type="VBoxContainer" parent="BeatPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Head" type="HBoxContainer" parent="BeatPanel/Box"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="BeatPanel/Box/Head"]
+layout_mode = 2
+theme_type_variation = &"BoldLabel"
+text = "beat"
+
+[node name="Bpm" type="Label" parent="BeatPanel/Box/Head"]
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+text = "120 bpm"
+
+[node name="Space" type="Control" parent="BeatPanel/Box/Head"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="BeatClear" type="Button" parent="BeatPanel/Box/Head"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "clear"
+tooltip_text = "turn every step off"
+
+[node name="BeatGrid" type="Control" parent="BeatPanel/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 0
+script = ExtResource("6")
+
+[node name="PadCard" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+theme_type_variation = &"VoiceCard"
+
+[node name="PadHolder" type="Control" parent="PadCard"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Pad" type="HBoxContainer" parent="PadCard/PadHolder"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 0
 theme_override_constants/separation = 12
 
-[node name="Column" type="VBoxContainer" parent="Layout/Left"]
+[node name="Column" type="VBoxContainer" parent="PadCard/PadHolder/Pad"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 14
 
-[node name="Voicebox" type="Control" parent="Layout/Left/Column"]
+[node name="Voicebox" type="Control" parent="PadCard/PadHolder/Pad/Column"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 388)
 layout_mode = 2
 mouse_filter = 0
 script = ExtResource("2")
 
-[node name="Pads" type="HBoxContainer" parent="Layout/Left/Column"]
+[node name="Pads" type="HBoxContainer" parent="PadCard/PadHolder/Pad/Column"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="PitchPad" type="Control" parent="Layout/Left/Column/Pads"]
+[node name="PitchPad" type="Control" parent="PadCard/PadHolder/Pad/Column/Pads"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
@@ -62,7 +157,7 @@ caption = "pitch"
 value = Vector2(0.34, 0.26)
 default_value = Vector2(0.34, 0.26)
 
-[node name="MouthPad" type="Control" parent="Layout/Left/Column/Pads"]
+[node name="MouthPad" type="Control" parent="PadCard/PadHolder/Pad/Column/Pads"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
@@ -73,17 +168,17 @@ caption = "mouth"
 value = Vector2(0.714, 0.5)
 default_value = Vector2(0.714, 0.5)
 
-[node name="Side" type="VBoxContainer" parent="Layout/Left"]
+[node name="Side" type="VBoxContainer" parent="PadCard/PadHolder/Pad"]
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
 theme_override_constants/separation = 0
 
-[node name="Spacer" type="Control" parent="Layout/Left/Side"]
+[node name="Spacer" type="Control" parent="PadCard/PadHolder/Pad/Side"]
 custom_minimum_size = Vector2(0, 190)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="SizeSlider" type="Control" parent="Layout/Left/Side"]
+[node name="SizeSlider" type="Control" parent="PadCard/PadHolder/Pad/Side"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(40, 0)
 layout_mode = 2
@@ -93,123 +188,487 @@ script = ExtResource("3")
 caption = "size"
 vertical_only = true
 
-[node name="Right" type="VBoxContainer" parent="Layout"]
+[node name="ControlsCard" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+theme_type_variation = &"ControlsCard"
+
+[node name="Box" type="VBoxContainer" parent="ControlsCard"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Say" type="HBoxContainer" parent="ControlsCard/Box"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SayText" type="LineEdit" parent="ControlsCard/Box/Say"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 10
+size_flags_stretch_ratio = 3.0
+focus_mode = 0
+mouse_filter = 2
+placeholder_text = "say…"
+editable = false
+tooltip_text = "coming soon"
 
-[node name="CharacterView" type="SubViewportContainer" parent="Layout/Right"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 260)
-size_flags_vertical = 3
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 0
-stretch = true
-
-[node name="SubViewport" type="SubViewport" parent="Layout/Right/CharacterView"]
-transparent_bg = true
-handle_input_locally = false
-msaa_3d = 2
-size = Vector2i(394, 672)
-render_target_update_mode = 4
-
-[node name="Camera" type="Camera3D" parent="Layout/Right/CharacterView/SubViewport"]
-unique_name_in_owner = true
-fov = 42.0
-
-[node name="Character" type="Node3D" parent="Layout/Right/CharacterView/SubViewport"]
-unique_name_in_owner = true
-script = ExtResource("4")
-
-[node name="BeatGrid" type="Control" parent="Layout/Right"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-mouse_filter = 0
-script = ExtResource("6")
-
-[node name="Toolbar" type="HFlowContainer" parent="Layout/Right"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="RecButton" type="Button" parent="Layout/Right/Toolbar"]
+[node name="SayButton" type="Button" parent="ControlsCard/Box/Say"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
+text = "say!"
+theme_type_variation = &"BigButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Transport" type="HBoxContainer" parent="ControlsCard/Box"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="RecButton" type="Button" parent="ControlsCard/Box/Transport"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "● record"
+theme_type_variation = &"RecordButton"
 toggle_mode = true
 tooltip_text = "record (R)"
-text = "rec"
+size_flags_horizontal = 3
+clip_text = true
 
-[node name="PlayButton" type="Button" parent="Layout/Right/Toolbar"]
+[node name="PlayButton" type="Button" parent="ControlsCard/Box/Transport"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
+text = "▶ play"
+theme_type_variation = &"PillButton"
 toggle_mode = true
 tooltip_text = "play (space)"
-text = "play"
+size_flags_horizontal = 3
+clip_text = true
 
-[node name="HoldButton" type="Button" parent="Layout/Right/Toolbar"]
+[node name="HoldButton" type="Button" parent="ControlsCard/Box/Transport"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
-toggle_mode = true
-tooltip_text = "hold the sound (H)"
 text = "hold"
+theme_type_variation = &"PillButton"
+toggle_mode = true
+tooltip_text = "keep making the sound of your last pose (H)"
+size_flags_horizontal = 3
+clip_text = true
 
-[node name="LoopButton" type="Button" parent="Layout/Right/Toolbar"]
+[node name="LoopBeat" type="Button" parent="ControlsCard/Box/Transport"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
-toggle_mode = true
-button_pressed = true
-tooltip_text = "loop (L)"
-text = "loop"
-
-[node name="LoopBeat" type="Button" parent="Layout/Right/Toolbar"]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-toggle_mode = true
-tooltip_text = "loop your phrase in time with the drums (B)"
 text = "loop on beat"
-
-[node name="EaseSmooth" type="Button" parent="Layout/Right/Toolbar"]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
+theme_type_variation = &"BigButton"
 toggle_mode = true
-tooltip_text = "ease in and out of this key"
-text = "smooth"
+tooltip_text = "repeat your phrase every 2 bars, in time with the beat (B)"
+size_flags_horizontal = 3
+clip_text = true
 
-[node name="AddKey" type="Button" parent="Layout/Right/Toolbar"]
+[node name="Shapes" type="GridContainer" parent="ControlsCard/Box"]
+layout_mode = 2
+theme_override_constants/h_separation = 5
+theme_override_constants/v_separation = 5
+columns = 8
+
+[node name="Shape0" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "a"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape1" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "e"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape2" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "i"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape3" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "o"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape4" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "u"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape5" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "m"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape6" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "n"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape7" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "b"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape8" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "d"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape9" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "g"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape10" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "s"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape11" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "sh"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape12" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "f"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape13" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "l"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape14" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "r"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Shape15" type="Button" parent="ControlsCard/Box/Shapes"]
+layout_mode = 2
+focus_mode = 0
+text = "h"
+theme_type_variation = &"ChipButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="Edit" type="HBoxContainer" parent="ControlsCard/Box"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Undo" type="Button" parent="ControlsCard/Box/Edit"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
-tooltip_text = "add a key (K)"
-text = "+ key"
+text = "undo"
+theme_type_variation = &"TallButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
 
-[node name="DeleteKey" type="Button" parent="Layout/Right/Toolbar"]
+[node name="Redo" type="Button" parent="ControlsCard/Box/Edit"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
-tooltip_text = "delete key (Delete)"
-text = "delete"
+text = "redo"
+theme_type_variation = &"TallButton"
+disabled = true
+tooltip_text = "coming soon"
+size_flags_horizontal = 3
+clip_text = true
 
-[node name="ClearKeys" type="Button" parent="Layout/Right/Toolbar"]
+[node name="Gap" type="Control" parent="ControlsCard/Box/Edit"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="ClearKeys" type="Button" parent="ControlsCard/Box/Edit"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 text = "clear all"
+theme_type_variation = &"DangerButton"
+tooltip_text = "remove every key"
+size_flags_horizontal = 3
+clip_text = true
 
-[node name="Timeline" type="Control" parent="Layout/Right"]
+[node name="TimelineCard" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+
+[node name="Box" type="VBoxContainer" parent="TimelineCard"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Tools" type="HBoxContainer" parent="TimelineCard/Box"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SnapLabel" type="Label" parent="TimelineCard/Box/Tools"]
+layout_mode = 2
+text = "snap"
+
+[node name="Snap" type="Button" parent="TimelineCard/Box/Tools"]
 unique_name_in_owner = true
 layout_mode = 2
+focus_mode = 0
+text = "1/16"
+theme_type_variation = &"IconButton"
+disabled = true
+tooltip_text = "coming soon"
+
+[node name="Quantize" type="Button" parent="TimelineCard/Box/Tools"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "quantize"
+disabled = true
+tooltip_text = "coming soon"
+
+[node name="Copy" type="Button" parent="TimelineCard/Box/Tools"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "copy"
+disabled = true
+tooltip_text = "coming soon"
+
+[node name="Paste" type="Button" parent="TimelineCard/Box/Tools"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "paste"
+disabled = true
+tooltip_text = "coming soon"
+
+[node name="Duplicate" type="Button" parent="TimelineCard/Box/Tools"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "duplicate"
+disabled = true
+tooltip_text = "coming soon"
+
+[node name="Space" type="Control" parent="TimelineCard/Box/Tools"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="LaneToggles" type="HBoxContainer" parent="TimelineCard/Box/Tools"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Timeline" type="Control" parent="TimelineCard/Box"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
 mouse_filter = 0
 script = ExtResource("5")
 
-[connection signal="gui_input" from="Layout/Right/CharacterView" to="." method="_on_view_input"]
-[connection signal="moved" from="Layout/Left/Column/Pads/PitchPad" to="." method="_on_pitch_moved"]
-[connection signal="held" from="Layout/Left/Column/Pads/PitchPad" to="." method="_on_pitch_held"]
-[connection signal="moved" from="Layout/Left/Column/Pads/MouthPad" to="." method="_on_mouth_moved"]
-[connection signal="moved" from="Layout/Left/Side/SizeSlider" to="." method="_on_size_moved"]
+[node name="Keys" type="HBoxContainer" parent="TimelineCard/Box"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PrevKey" type="Button" parent="TimelineCard/Box/Keys"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "←"
+tooltip_text = "previous key ([)"
+
+[node name="NextKey" type="Button" parent="TimelineCard/Box/Keys"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "→"
+tooltip_text = "next key (])"
+
+[node name="AddKey" type="Button" parent="TimelineCard/Box/Keys"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "+ key"
+tooltip_text = "add a key at the playhead (K)"
+
+[node name="LoopButton" type="Button" parent="TimelineCard/Box/Keys"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "loop"
+toggle_mode = true
+button_pressed = true
+tooltip_text = "loop playback (L)"
+
+[node name="Sep" type="ColorRect" parent="TimelineCard/Box/Keys"]
+custom_minimum_size = Vector2(1, 18)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+color = Color(0, 0, 0, 0.35)
+
+[node name="KeyLabel" type="Label" parent="TimelineCard/Box/Keys"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "key"
+
+[node name="EaseLinear" type="Button" parent="TimelineCard/Box/Keys"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "linear"
+toggle_mode = true
+tooltip_text = "straight to the next key"
+
+[node name="EaseSmooth" type="Button" parent="TimelineCard/Box/Keys"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "smooth"
+toggle_mode = true
+tooltip_text = "ease in and out of this key"
+
+[node name="DeleteKey" type="Button" parent="TimelineCard/Box/Keys"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "delete"
+tooltip_text = "delete key (Delete)"
+
+[node name="Help" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"Backdrop"
+
+[node name="Center" type="CenterContainer" parent="Help"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Panel" type="PanelContainer" parent="Help/Center"]
+custom_minimum_size = Vector2(460, 0)
+layout_mode = 2
+
+[node name="Box" type="VBoxContainer" parent="Help/Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Head" type="HBoxContainer" parent="Help/Center/Panel/Box"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Help/Center/Panel/Box/Head"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"BoldLabel"
+text = "help"
+
+[node name="HelpClose" type="Button" parent="Help/Center/Panel/Box/Head"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "×"
+theme_type_variation = &"IconButton"
+
+[node name="Text" type="Label" parent="Help/Center/Panel/Box"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 2
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 13
+
+[connection signal="gui_input" from="CharacterView" to="." method="_on_view_input"]
+[connection signal="moved" from="PadCard/PadHolder/Pad/Column/Pads/PitchPad" to="." method="_on_pitch_moved"]
+[connection signal="held" from="PadCard/PadHolder/Pad/Column/Pads/PitchPad" to="." method="_on_pitch_held"]
+[connection signal="moved" from="PadCard/PadHolder/Pad/Column/Pads/MouthPad" to="." method="_on_mouth_moved"]
+[connection signal="moved" from="PadCard/PadHolder/Pad/Side/SizeSlider" to="." method="_on_size_moved"]

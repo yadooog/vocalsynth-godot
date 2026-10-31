@@ -15,16 +15,18 @@ signal playing_changed(on: bool)
 signal recording_changed(on: bool)
 signal scrub_ended
 
-const INK := Color(0.133, 0.133, 0.125)
-const PAPER := Color(0.969, 0.957, 0.933)
-const PAD_COLOR := Color(0.925, 0.91, 0.875)
+const INK := Color(0.149, 0.149, 0.149)
+const PAPER := Color(1, 1, 1)                 # the web timeline's key colour
+const PAD_COLOR := Color(0.937, 0.918, 0.878) # the web's chip colour
+const RED := Color(0.894, 0.341, 0.18)
 
 const DURATION := 4.0
 const BEAT := 0.5            # 120 bpm
 const SNAP := 0.125          # a 16th note
 const RULER := 26.0
 const KEYS_ROW := 32.0
-const LANE_H := 46.0
+const LANE_H := 46.0          # tallest a lane gets
+const MIN_LANE_H := 24.0      # lanes shrink to fit the card, down to this
 const SIDE := 14.0           # padding so keys at 0 s and 4 s can be grabbed
 const HIT := 14.0
 const RECORD_STEP := 1.0 / 30.0
@@ -77,9 +79,19 @@ func set_lane(id: String, on: bool) -> void:
 	_refresh_lanes()
 
 
+var _bg := _make_bg()
+
+
+static func _make_bg() -> StyleBoxFlat:
+	var b := StyleBoxFlat.new()
+	b.bg_color = PAD_COLOR
+	b.set_corner_radius_all(3)
+	return b
+
+
 func _refresh_lanes() -> void:
 	_lanes = LANES.filter(func(l): return lane_ids.has(l["id"]))
-	custom_minimum_size.y = RULER + KEYS_ROW + _lanes.size() * LANE_H + 4.0
+	custom_minimum_size.y = RULER + KEYS_ROW + _lanes.size() * MIN_LANE_H + 2.0
 	queue_redraw()
 
 
@@ -464,8 +476,13 @@ func _time_at(x: float) -> float:
 	return clampf((x - SIDE) / maxf(size.x - 2.0 * SIDE, 1.0) * DURATION, 0.0, DURATION)
 
 
+# Lanes share the height the timeline is given.
+func _lh() -> float:
+	return clampf((size.y - RULER - KEYS_ROW - 2.0) / maxf(_lanes.size(), 1.0), MIN_LANE_H, LANE_H)
+
+
 func _lane_top(i: int) -> float:
-	return RULER + KEYS_ROW + i * LANE_H
+	return RULER + KEYS_ROW + i * _lh()
 
 
 func _lane_y(i: int, f: Dictionary) -> float:
@@ -473,12 +490,12 @@ func _lane_y(i: int, f: Dictionary) -> float:
 	var u: float = (f[lane["field"]] - lane["lo"]) / (lane["hi"] - lane["lo"])
 	if lane["flip"]:
 		u = 1.0 - u
-	return _lane_top(i) + 5.0 + (1.0 - clampf(u, 0.0, 1.0)) * (LANE_H - 10.0)
+	return _lane_top(i) + 5.0 + (1.0 - clampf(u, 0.0, 1.0)) * (_lh() - 10.0)
 
 
 func _value_at(i: int, y: float) -> float:
 	var lane: Dictionary = _lanes[i]
-	var u := 1.0 - clampf((y - _lane_top(i) - 5.0) / (LANE_H - 10.0), 0.0, 1.0)
+	var u := 1.0 - clampf((y - _lane_top(i) - 5.0) / (_lh() - 10.0), 0.0, 1.0)
 	if lane["flip"]:
 		u = 1.0 - u
 	return lerpf(lane["lo"], lane["hi"], u)
@@ -540,7 +557,7 @@ func _press(pos: Vector2, double: bool) -> void:
 			selected = null
 			_start_scrub(pos)
 		return
-	var lane := int((pos.y - RULER - KEYS_ROW) / LANE_H)
+	var lane := int((pos.y - RULER - KEYS_ROW) / _lh())
 	if lane >= 0 and lane < _lanes.size():
 		for k in keys:
 			if absf(_x_of(k["t"]) - pos.x) <= HIT and absf(_lane_y(lane, k["f"]) - pos.y) <= HIT:
@@ -599,10 +616,10 @@ func _move(pos: Vector2) -> void:
 # ---------------------------------------------------------------- drawing
 
 func _draw() -> void:
-	var font := ThemeDB.fallback_font
+	var font := get_theme_default_font()
 	var w := size.x
-	var h := RULER + KEYS_ROW + _lanes.size() * LANE_H
-	draw_rect(Rect2(0, 0, w, h), PAD_COLOR)
+	var h := size.y
+	draw_style_box(_bg, Rect2(0, 0, w, h))
 
 	# beat grid (a darker line each bar), and the ruler
 	var beats := int(DURATION / BEAT)
@@ -610,8 +627,10 @@ func _draw() -> void:
 		var x := _x_of(b * BEAT)
 		var bar := b % 4 == 0
 		draw_line(Vector2(x, RULER - (10.0 if bar else 5.0)), Vector2(x, h), Color(INK, 0.28 if bar else 0.1), 1.0)
-		if bar:
-			draw_string(font, Vector2(x + 4, 15), "%d" % (b / 4 + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(INK, 0.6))
+		if b % 2 == 0: # a label each second, like the web game
+			var label := "%ds" % int(b / 2.0)
+			var lx := x + 4 if b < beats else x - 4 - font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+			draw_string(font, Vector2(lx, 14), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(INK, 0.6))
 	draw_line(Vector2(0, RULER), Vector2(w, RULER), Color(INK, 0.5), 1.0)
 	draw_line(Vector2(0, RULER + KEYS_ROW), Vector2(w, RULER + KEYS_ROW), Color(INK, 0.3), 1.0)
 
@@ -620,7 +639,7 @@ func _draw() -> void:
 		var top := _lane_top(i)
 		if i > 0:
 			draw_line(Vector2(0, top), Vector2(w, top), Color(INK, 0.15), 1.0)
-		draw_string(font, Vector2(6, top + 12), _lanes[i]["label"], HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(INK, 0.55))
+		draw_string(font, Vector2(w - 6, top + 14), _lanes[i]["label"], HORIZONTAL_ALIGNMENT_RIGHT, w - 12, 11, Color(INK, 0.55))
 		if keys.is_empty():
 			continue
 		var pts := PackedVector2Array()
@@ -646,5 +665,5 @@ func _draw() -> void:
 
 	# playhead
 	var px := _x_of(t)
-	draw_line(Vector2(px, 0), Vector2(px, h), Color(0.85, 0.15, 0.15) if recording else INK, 2.0)
-	draw_rect(Rect2(0, 0, w, h), INK, false, 1.0)
+	draw_line(Vector2(px, 4), Vector2(px, h), RED if recording else INK, 2.0)
+	draw_colored_polygon(PackedVector2Array([Vector2(px - 5, 4), Vector2(px + 5, 4), Vector2(px, 11)]), RED if recording else INK)

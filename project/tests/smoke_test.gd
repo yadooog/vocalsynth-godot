@@ -60,6 +60,18 @@ func _initialize() -> void:
 			ok = false
 		character.walk_to(Vector3(1.0, 0, 0.5))
 		# Timeline: two keys, then play across them.
+		# The panels are laid out like the web game and fit on screen.
+		main._layout()
+		var screen: Vector2 = main.size
+		for card_name in ["PadCard", "ControlsCard", "TimelineCard", "TopBar"]:
+			var r: Rect2 = main.get_node("%" + card_name).get_rect()
+			if r.position.x < 0 or r.position.y < 0 or r.end.x > screen.x + 1 or r.end.y > screen.y + 1:
+				printerr("FAIL: %s is off screen: %s in %s" % [card_name, r, screen])
+				ok = false
+		if main.get_node("%PadCard").get_rect().intersects(main.get_node("%TimelineCard").get_rect()):
+			printerr("FAIL: control pad overlaps the timeline")
+			ok = false
+		print("ok: layout, control pad at %.2fx" % main.get_node("%Pad").scale.x)
 		var timeline = main.get_node("%Timeline")
 		timeline.add_key(main.capture_frame(), 0.0)
 		var f2: Dictionary = main.capture_frame()

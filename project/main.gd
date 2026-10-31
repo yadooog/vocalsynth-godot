@@ -54,7 +54,14 @@ func _ready() -> void:
 	size_slider.held.connect(_on_interact)
 	timeline.scrub_ended.connect(_update_voicing)
 	%HoldButton.toggled.connect(func(on): hold_on = on; _update_voicing())
-	%EaseSmooth.toggled.connect(func(on): timeline.set_selected_ease("smooth" if on else "linear"))
+	%EaseSmooth.pressed.connect(func(): timeline.set_selected_ease("smooth"))
+	%EaseLinear.pressed.connect(func(): timeline.set_selected_ease("linear"))
+	%PrevKey.pressed.connect(func(): timeline.select_neighbour(-1))
+	%NextKey.pressed.connect(func(): timeline.select_neighbour(1))
+	%HelpButton.pressed.connect(func(): %Help.visible = true)
+	%HelpClose.pressed.connect(func(): %Help.visible = false)
+	%Help.gui_input.connect(func(e): if e is InputEventMouseButton and e.pressed: %Help.visible = false)
+	%Text.text = HELP
 	voicebox.timeline = timeline
 	pitch_pad.timeline = timeline
 	pitch_pad.field_x = "px"
@@ -73,10 +80,6 @@ func _ready() -> void:
 	voicebox.closure_moved.connect(func(id, i, d): _closure_edit(func(): timeline.closure_move(id, i, d)))
 	voicebox.closure_released.connect(func(id, on): _closure_edit(func(): timeline.closure_release(id, on)))
 	# Which lanes the timeline shows.
-	var lane_bar := HFlowContainer.new()
-	lane_bar.add_theme_constant_override("separation", 6)
-	timeline.get_parent().add_child(lane_bar)
-	timeline.get_parent().move_child(lane_bar, timeline.get_index())
 	for lane in timeline.LANES:
 		var b := Button.new()
 		b.text = lane["label"]
@@ -84,7 +87,7 @@ func _ready() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.button_pressed = timeline.lane_ids.has(lane["id"])
 		b.toggled.connect(timeline.set_lane.bind(lane["id"]))
-		lane_bar.add_child(b)
+		%LaneToggles.add_child(b)
 	timeline.capture = Callable(self, "capture_frame")
 	timeline.frame_changed.connect(apply_frame)
 	timeline.playing_changed.connect(_on_playing_changed)
@@ -101,17 +104,26 @@ func _ready() -> void:
 	add_child(beats)
 	beats.stepped.connect(func(_step, hits): if hits.has(0): room.thump())
 	%BeatGrid.beats = beats
+	%BeatClear.pressed.connect(beats.clear)
 	%LoopBeat.toggled.connect(_on_loop_beat_toggled)
 	character.position = Vector3(0, 0, 4)
 	cam_target = character.position
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
+	resized.connect(_layout)
+	%ControlsCard.minimum_size_changed.connect(_layout)
+	%TimelineCard.minimum_size_changed.connect(_layout)
+	_layout.call_deferred()
 
 
 func _process(delta: float) -> void:
 	time += delta
 	var sel = timeline.selected
 	%EaseSmooth.set_pressed_no_signal(sel != null and sel["ease"] == "smooth")
+	%EaseLinear.set_pressed_no_signal(sel != null and sel["ease"] != "smooth")
+	for b in [%EaseLinear, %EaseSmooth, %DeleteKey]:
+		b.disabled = sel == null
+	%KeyLabel.modulate.a = 1.0 if sel != null else 0.45
 	_walk(delta)
 	_update_camera(delta)
 	_update_stage()
@@ -158,7 +170,7 @@ func _update_stage() -> void:
 	var x := character.position.x
 	var z := character.position.z
 	beats.set_volume(0.8 * beats.volume_at(Vector2(x - World.STAGE["x"], z - World.STAGE["z"]).length()))
-	%BeatGrid.visible = World.on_stage(x, z)
+	%BeatPanel.visible = World.on_stage(x, z)
 	var lp: float = beats.loop_position()
 	if loop_beat and interacting == 0 and not timeline.recording:
 		if timeline.follow_clock:
@@ -246,7 +258,74 @@ func _update_camera(delta: float) -> void:
 	var near := smoothstep(0.0, 1.0, (1.0 - z) / (1.0 - ZOOM_MIN))
 	var up := 0.95 - 0.7 * near
 	var look_y := 1.4 + 0.9 * near
-	camera.look_at_from_position(Vector3(cam_target.x, look_y * near + back * up, cam_target.z + back), Vector3(cam_target.x, look_y, cam_target.z))
+	var eye := Vector3(cam_target.x, look_y * near + back * up, cam_target.z + back)
+	var look := Vector3(cam_target.x, look_y, cam_target.z)
+	camera.look_at_from_position(eye, look)
+	# Shift the view so the character sits at `focus` on screen, not hidden behind the panels.
+	var view := character_view.size
+	var px_per_unit := (view.y * 0.5) / (eye.distance_to(look) * tan(deg_to_rad(camera.fov) * 0.5))
+	camera.h_offset = -(focus.x - view.x * 0.5) / px_per_unit
+	camera.v_offset = (focus.y - view.y * 0.5) / px_per_unit
+
+
+# ---------------------------------------------------------------- layout
+# Like the web game: the room fills the screen. Bottom left, the control pad above the controls
+# card; bottom right, the timeline, level with the controls. The control pad is scaled to fit.
+
+const GAP := 16.0
+const ROW_GAP := 10.0
+const TOP_SPACE := 64.0        # room left for the top bar
+var focus := Vector2(640, 300) # where the character should appear on screen
+
+
+func _layout() -> void:
+	var screen := size
+	var pad: Control = %Pad
+	var pad_card: Control = %PadCard
+	var controls: Control = %ControlsCard
+	var tl: Control = %TimelineCard
+	pad.size = pad.get_combined_minimum_size()
+	var natural := pad.size
+	var inset := Vector2(14, 18)   # space between the card's edge and the control pad
+	var controls_h := controls.get_combined_minimum_size().y
+	var room_h := screen.y - GAP - controls_h - ROW_GAP - TOP_SPACE - inset.y * 2.0
+	var widest := minf(500.0, screen.x * 0.36) - inset.x * 2.0
+	var k := clampf(minf(room_h / natural.y, widest / natural.x), 0.3, 1.0)
+	var left_w := maxf(natural.x * k + inset.x * 2.0, 340.0)
+	pad.scale = Vector2(k, k)
+	pad.position = Vector2((left_w - natural.x * k) * 0.5, inset.y)
+	%PadHolder.custom_minimum_size = Vector2(left_w, natural.y * k + inset.y * 2.0)
+
+	var controls_top := screen.y - GAP - controls_h
+	controls.position = Vector2(GAP, controls_top)
+	controls.size = Vector2(left_w, controls_h)
+	pad_card.size = Vector2(left_w, %PadHolder.custom_minimum_size.y)
+	pad_card.position = Vector2(GAP, controls_top - ROW_GAP - pad_card.size.y)
+
+	var right_x := GAP + left_w + ROW_GAP
+	var tl_h := maxf(controls_h, tl.get_combined_minimum_size().y)
+	tl.position = Vector2(right_x, screen.y - GAP - tl_h)
+	tl.size = Vector2(screen.x - GAP - right_x, tl_h)
+
+	var beat: Control = %BeatPanel
+	var beat_w := minf(500.0, screen.x - right_x - GAP)
+	beat.size = Vector2(beat_w, beat.get_combined_minimum_size().y)
+	beat.position = Vector2(screen.x - GAP - beat_w, tl.position.y - ROW_GAP - beat.size.y)
+
+	focus = Vector2((GAP + left_w + screen.x) * 0.5, maxf(120.0, tl.position.y * 0.55))
+
+
+const HELP := """getting started: drag on the voice box to make a sound. press record and play with the control pad, or add keys with + key, then tweak them on the timeline. space plays.
+
+walking: wasd / arrow keys, or press and drag on the room. scroll to zoom.
+
+the control pad: drag the tongue in its slice, press along the tube to close it, use the pitch and mouth pads and the size slider. with a key selected, that edits the key.
+
+the beat: the drums play on the stage at 120 bpm. a phrase is 4 seconds = 2 bars, so loop on beat repeats yours in time with the drums. stand on the stage to change the beat.
+
+keys: space play · l loop · r record · h hold sound · b loop on beat · k add key · [ ] step keys · delete removes a key · esc deselect
+
+pink trombone by neil thapen (2017), modular version by christian d'heureuse. mit license."""
 
 
 func _on_pitch_moved(v: Vector2) -> void:

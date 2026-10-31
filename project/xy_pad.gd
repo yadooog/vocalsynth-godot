@@ -94,7 +94,7 @@ func _drag(pos: Vector2) -> void:
 
 
 func _draw() -> void:
-	var font := ThemeDB.fallback_font
+	var font := get_theme_default_font()
 	if vertical_only:
 		var x := size.x * 0.5
 		draw_line(Vector2(x, 0), Vector2(x, size.y), INK, 1.0)
