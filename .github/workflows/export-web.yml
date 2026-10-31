@@ -49,8 +49,10 @@ jobs:
           ./godot --headless --path project --import || true
           timeout 240 ./godot --headless --path project -s res://tests/smoke_test.gd > smoke.log 2>&1 || echo "smoke test exited with $?"
           head -c 20000 smoke.log
-          ! grep -E "SCRIPT ERROR|Parse Error|ERROR:" smoke.log
+          # (a bare "! grep" never fails a step, so check explicitly)
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR:|FAIL:" smoke.log; then echo "smoke test found errors"; exit 1; fi
           grep -q "character runs" smoke.log
+          grep -q "ok: soundboard" smoke.log
 
       - name: Export
         run: |
