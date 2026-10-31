@@ -294,8 +294,10 @@ func _layout() -> void:
 	var left_w := maxf(natural.x * k + inset.x * 2.0, 340.0)
 	pad.scale = Vector2(k, k)
 	# Big button text shrinks with the column, as in the web game.
+	var fs := int(clampf(left_w * 0.03, 11.0, 15.0))
 	for b in [%SayButton, %LoopBeat]:
-		b.add_theme_font_size_override("font_size", int(clampf(left_w * 0.03, 11.0, 15.0)))
+		if b.get_theme_font_size("font_size") != fs:
+			b.add_theme_font_size_override("font_size", fs)
 	pad.position = Vector2((left_w - natural.x * k) * 0.5, inset.y)
 	%PadHolder.custom_minimum_size = Vector2(left_w, natural.y * k + inset.y * 2.0)
 
