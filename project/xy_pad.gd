@@ -97,9 +97,9 @@ func _draw() -> void:
 	var font := get_theme_default_font()
 	if vertical_only:
 		var x := size.x * 0.5
-		draw_line(Vector2(x, 0), Vector2(x, size.y), INK, 1.0)
+		draw_line(Vector2(x, 0), Vector2(x, size.y), INK, -1.0)
 		var mid := default_value.y * size.y
-		draw_line(Vector2(x - 5, mid), Vector2(x + 5, mid), Color(INK, 0.4), 1.0)
+		draw_line(Vector2(x - 5, mid), Vector2(x + 5, mid), Color(INK, 0.4), -1.0)
 		_draw_motion()
 		var r := Rect2(Vector2(x - 9, value.y * size.y - 6), Vector2(18, 12))
 		draw_rect(r, PAD)
@@ -111,9 +111,9 @@ func _draw() -> void:
 		return
 	if horizontal_only:
 		var y := size.y * 0.5
-		draw_line(Vector2(0, y), Vector2(size.x, y), INK, 1.0)
+		draw_line(Vector2(0, y), Vector2(size.x, y), INK, -1.0)
 		var mid := default_value.x * size.x
-		draw_line(Vector2(mid, y - 5), Vector2(mid, y + 5), Color(INK, 0.4), 1.0)
+		draw_line(Vector2(mid, y - 5), Vector2(mid, y + 5), Color(INK, 0.4), -1.0)
 		var r := Rect2(Vector2(value.x * size.x - 6, y - 9), Vector2(12, 18))
 		draw_rect(r, PAD)
 		draw_rect(r, INK, false, 1.5)
@@ -125,8 +125,8 @@ func _draw() -> void:
 	for i in lines:
 		var x := (i + 0.5) / lines * size.x
 		var marked := marked_lines.has(i)
-		draw_line(Vector2(x, 6), Vector2(x, size.y - 6), Color(INK, 0.3 if marked else 0.1), 1.0)
-	draw_rect(Rect2(Vector2.ZERO, size), INK, false, 1.0)
+		draw_line(Vector2(x, 6), Vector2(x, size.y - 6), Color(INK, 0.3 if marked else 0.1), -1.0)
+	draw_rect(Rect2(Vector2.ZERO, size), INK, false, -1.0)
 	_draw_motion()
 	var p := value * size
 	var m := Rect2(p - Vector2(8, 8), Vector2(16, 16))
