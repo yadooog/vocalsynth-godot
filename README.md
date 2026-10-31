@@ -18,30 +18,52 @@ The sound engine is a C++ port of [pink-trombone-mod](https://github.com/chdh/pi
 
 You don't need a compiler: the engine files in `project/bin/` are built by GitHub.
 
+## Working together
+
+The repo is private, so friends need an invite first:
+
+1. The owner opens **Settings > Collaborators** on GitHub
+   (github.com/yadooog/vocalsynth-godot/settings/access), clicks **Add people** and types
+   each friend's GitHub username. They accept the invite from their email or GitHub.
+2. Each friend follows **Open and run it** above.
+
+Day to day, in GitHub Desktop:
+
+- **Fetch / Pull** before you start, so you have everyone's latest work.
+- Make a change, test it with F5, then **Commit to main** with a short note and **Push**.
+- Try not to edit the same scene (`.tscn`) as someone else at the same time. Godot rewrites
+  whole scene files, so two people's changes to one scene clash. Scripts (`.gd`) merge fine.
+- If GitHub Desktop says there's a conflict, stop and ask whoever made the other change.
+- After someone changes the C++ engine (`src/`), GitHub rebuilds it in about 25 minutes
+  and commits the new files to `project/bin/`. Pull again once that's done.
+
+Every push to main also updates the web version on the `web-build` branch (about 3 minutes).
+A quick automatic test runs first, and if it fails the GitHub **Actions** tab shows why.
+
 ## Controls
 
-- **Tongue**: drag the round marker inside the shaded pad.
-- **Constrictions**: click and hold anywhere in the mouth. Near the roof makes
-  hissing sounds ("s", "sh", "f"); on or above the roof closes it ("t", "k" when released).
-- **pitch** pad: left/right is the note, up is a tense voice, down is breathy.
-  Holding it keeps the voice going when **voice** is off.
-- **mouth** pad: left/right closes or spreads the lips ("oo" / "ee", or "p"/"b" when
-  you open them from closed), up/down closes or opens the jaw.
-- **size**: from a tiny squeaky voice (left) to a giant one (right). Middle is normal.
-- **voice** keeps the voice on all the time, **wobble** adds natural pitch drift,
-  **hum** opens the nose ("m", "n", "ng" with the lips or tongue closed).
-- Double-click a pad or the slider to reset it.
-- **The character** (middle): its head gets wider with the lips and taller with the jaw,
-  its tongue comes out as the mouth opens, and the heavy head wobbles on a springy neck.
-  Click or drag in its area, or use the arrow keys / WASD, to make it walk and
-  watch the head and googly eyes slosh about.
+- **Walk**: WASD / arrow keys, or press and drag in the room. Scroll to zoom.
+- **Control pad** (bottom left): drag the tongue in its slice, press along the tube to close
+  it, the **pitch** pad (left/right note, up tense, down breathy), the **mouth** pad (lips and
+  jaw) and the **size** slider (small squeaky voice to big low one). Sound plays while you
+  touch it.
+- **Timeline** (bottom right): **record** or **+ key** to make a 4-second phrase, **space**
+  plays it. With a key selected, the control pad edits that key.
+- **The stage**: the drums play there; stand on it to edit the beat. **loop on beat** repeats
+  your phrase in time with the drums.
+- **The booth** (left of the stage): walk in to make your section of the song. Press **done**
+  and you're revealed on the stage, then your section joins the song with its own singer.
+- **?** (top left) lists the keyboard shortcuts.
 
 ## What's where
 
 | Path | What it is |
 | --- | --- |
 | `project/character/` | The character: `character.gd` (body, head shape, neck physics, googly eyes, tongue) and its two shaders. |
-| `project/` | The Godot project. `voicebox.gd` draws the tract, `xy_pad.gd` is the pads and slider, `main.gd` connects them to the synth. |
+| `project/` | The Godot project. `main.tscn`/`main.gd` lay out the screen and connect everything; `voicebox.gd` is the tract, `xy_pad.gd` the pads and slider, `timeline.gd` the phrase editor. |
+| `project/room/` | The hub room (`world.gd` layout and walking, `room.gd` builds it), the drums (`beats.gd`) and the beat grid. |
+| `project/song/` | The shared song: each section from the booth plays on its own voice with a singer. |
+| `project/theme.tres` | The paper look, made by `tools/make_theme.py` (edit that, then run it). |
 | `project/bin/` | The compiled engine for Mac, Windows, Linux and web (made by GitHub, don't edit). |
 | `src/synth/` | The voice engine in plain C++ (no Godot code), ported file by file from pink-trombone-mod. |
 | `src/pink_trombone.cpp` | Makes the engine usable from GDScript as the `PinkTrombone` class. |
