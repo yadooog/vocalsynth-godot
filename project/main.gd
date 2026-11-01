@@ -691,7 +691,7 @@ func _put_character(p: Vector2, facing: float) -> void:
 # Scroll to zoom. The camera follows from above and behind, like the web game.
 
 const JOYSTICK_RANGE := 60.0   # px of drag for full speed
-const ZOOM_MIN := 0.22         # closest: about face height
+const ZOOM_MIN := 0.38         # closest: about face height, not so near the head clips
 const ZOOM_MAX := 1.8          # furthest out
 # The lens changes with zoom: wide angle up close, flatter (telephoto) far out. The camera
 # moves in or out to make up for it, so things stay about the same size on screen.
