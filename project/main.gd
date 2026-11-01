@@ -693,6 +693,11 @@ func _put_character(p: Vector2, facing: float) -> void:
 const JOYSTICK_RANGE := 60.0   # px of drag for full speed
 const ZOOM_MIN := 0.22         # closest: about face height
 const ZOOM_MAX := 1.8          # furthest out
+# The lens changes with zoom: wide angle up close, flatter (telephoto) far out. The camera
+# moves in or out to make up for it, so things stay about the same size on screen.
+const FOV_CLOSE := 70.0
+const FOV_DEFAULT := 42.0
+const FOV_FAR := 26.0
 var stick = null               # [origin, current] while dragging in the room
 var zoom := 1.0
 var zoom_shown := 1.0
@@ -763,7 +768,11 @@ func _update_camera(delta: float) -> void:
 	cam_target = cam_target.lerp(Vector3(character.position.x, 0, character.position.z), 1.0 - exp(-5.0 * delta))
 	zoom_shown += (zoom - zoom_shown) * (1.0 - exp(-12.0 * delta))
 	var z := zoom_shown
-	var back := 17.0 * z
+	if z < 1.0:
+		camera.fov = lerpf(FOV_CLOSE, FOV_DEFAULT, smoothstep(ZOOM_MIN, 1.0, z))
+	else:
+		camera.fov = lerpf(FOV_DEFAULT, FOV_FAR, smoothstep(1.0, ZOOM_MAX, z))
+	var back := 17.0 * z * tan(deg_to_rad(FOV_DEFAULT) * 0.5) / tan(deg_to_rad(camera.fov) * 0.5)
 	var near := smoothstep(0.0, 1.0, (1.0 - z) / (1.0 - ZOOM_MIN))
 	var up := 0.95 - 0.7 * near
 	var look_y := 1.4 + 0.9 * near
