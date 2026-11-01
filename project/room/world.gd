@@ -4,7 +4,7 @@ class_name World
 
 const WIDTH := 60.0              # world units; the room is centred on (0, 0)
 const DEPTH := 44.0
-const WALK_SPEED := 5.0          # units per second
+const WALK_SPEED := 8.0          # units per second
 const PLAYER_RADIUS := 0.8       # keeps characters off the walls
 
 # Solid things you walk around. Circles: {shape "circle", x, z, r, kind}.

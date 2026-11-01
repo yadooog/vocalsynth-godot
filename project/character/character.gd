@@ -20,44 +20,44 @@ extends Node3D
 # --- Shape (the average of the ranges the web game picks from) -----------------------
 const HEAD_R := 0.68
 const HEAD_LEN := 1.2
-const HEAD_DEPTH := 0.83
+const HEAD_DEPTH := 0.9
 const BODY_R := 0.36
-const BODY_LEN := 0.27
+const BODY_LEN := 0.25
 const LEG_R := 0.115
-const LEG_LEN := 0.385
+const LEG_LEN := 0.15
 const LEG_GAP := 0.165
 const ARM_R := 0.07
-const ARM_LEN := 0.72
-const MOUTH_W := 0.75      # mouth width, relative to the head's half-width
+const ARM_LEN := 0.5
+const MOUTH_W := 0.9      # mouth width, relative to the head's half-width
 const MOUTH_Y := -0.22     # below the head's centre
-const EYE_GAP := 0.32
+const EYE_GAP := 0.35
 const EYE_Y := 0.28
 const EYE_R := 0.25
 
 # --- Physics knobs --------------------------------------------------------------------
 const NECK_STIFFNESS := 55.0     # how hard the neck pulls the head back upright
 const NECK_DAMPING := 3.5        # lower = wobbles for longer
-const TOPPLE := 30.0             # how much gravity tips it further once it leans
-const HEAD_INERTIA := 0.09       # how much speeding up / slowing down throws the head
-const HEAD_MAX_LEAN := 0.75      # radians; the neck won't let it go past this
+const TOPPLE := 50.0             # how much gravity tips it further once it leans
+const HEAD_INERTIA := 1       # how much speeding up / slowing down throws the head
+const HEAD_MAX_LEAN := 1.25      # radians; the neck won't let it go past this
 
 const TONGUE_POINTS := 20
-const TONGUE_MAX_LENGTH := 3.8
-const TONGUE_OUT_START := 0.12   # mouth openness where the tongue starts to come out
-const TONGUE_OUT_FULL := 0.65    # ... and where it is all the way out
-const TONGUE_RADIUS := 0.17
+const TONGUE_MAX_LENGTH := 3
+const TONGUE_OUT_START := 0.15   # mouth openness where the tongue starts to come out
+const TONGUE_OUT_FULL := 0.75    # ... and where it is all the way out
+const TONGUE_RADIUS := 0.25
 const TONGUE_FLATNESS := 0.5
-const TONGUE_GRAVITY := 8.0
+const TONGUE_GRAVITY := 8
 const TONGUE_DAMPING := 0.996
-const TONGUE_STIFFNESS := 0.035
+const TONGUE_STIFFNESS := 0.05
 const TONGUE_ROOT_STIFFNESS := 0.3
-const TONGUE_FLAP := 3.0
-const TONGUE_WRITHE := 1.0
+const TONGUE_FLAP := 2
+const TONGUE_WRITHE := 0.5
 const TONGUE_TWITCH := 0.0
 const TONGUE_LENGTH_SPRING := 120.0
 const TONGUE_LENGTH_DAMPING := 9.0
 const TONGUE_BULGE := 0.35
-const TONGUE_SLURP := 3.0
+const TONGUE_SLURP := 12
 const TONGUE_STEP := 1.0 / 120.0
 
 const HEAD_COLOR := Color(0.957, 0.663, 0.769)
@@ -142,7 +142,7 @@ func _ready() -> void:
 
 # ------------------------------------------------------------------ building
 
-func _toon(color: Color, with_outline := true, outline_width := 0.035) -> ShaderMaterial:
+func _toon(color: Color, with_outline := true, outline_width := 0.015) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = toon_shader
 	m.set_shader_parameter("albedo", color)
