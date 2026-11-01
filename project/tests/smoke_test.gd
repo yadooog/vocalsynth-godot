@@ -128,16 +128,30 @@ func _initialize() -> void:
 			printerr("FAIL: say box did not play")
 			ok = false
 		print("ok: say box made %d keys for a sentence" % said.size())
-		# Soundboard: save a pad, use it to add a key.
-		main.presets.clear()
-		main._add_preset()
+		# Soundboards: save a sound, use it to add a key; save a phrase, load it.
+		main.sounds.clear()
+		main.phrases.clear()
+		main._add_sound(null)
 		tl.set_keys([])
-		main._use_preset(0)
-		if main.presets.size() != 1 or tl.keys.size() != 1:
-			printerr("FAIL: soundboard did not add a key (%d presets, %d keys)" % [main.presets.size(), tl.keys.size()])
+		main._use_sound(0)
+		if main.sounds.size() != 1 or tl.keys.size() != 1:
+			printerr("FAIL: sound board did not add a key (%d sounds, %d keys)" % [main.sounds.size(), tl.keys.size()])
 			ok = false
-		main.presets.clear()
-		main._save_presets()
+		main._add_phrase(null)
+		tl.set_keys([])
+		main._use_phrase(0)
+		if main.phrases.size() != 1 or tl.keys.size() != 1 or not tl.playing:
+			printerr("FAIL: phrase board did not load a phrase")
+			ok = false
+		main._switch_board()
+		main._save_board()
+		main._load_board()
+		if main.sounds.size() != 1 or main.phrases.size() != 1:
+			printerr("FAIL: boards did not save and load")
+			ok = false
+		main.sounds.clear()
+		main.phrases.clear()
+		main._save_board()
 		print("ok: soundboard")
 
 	quit(0 if ok else 1)

@@ -134,6 +134,7 @@ func _process(delta: float) -> void:
 	if booth_state == "room" or booth_state == "booth":
 		_walk(delta)
 	_update_preview(delta)
+	_update_board_lock()
 	_update_booth(delta)
 	_update_camera(delta)
 	_update_stage()
@@ -180,18 +181,33 @@ func _on_loop_beat_toggled(on: bool) -> void:
 		timeline.stop()
 
 
-# ---------------------------------------------------------------- say box and soundboard
-# Type something and press enter (or say!): it becomes a phrase and plays. The grid under it
-# is your own soundboard: + saves the control pad as a pad. Clicking a pad sets the selected
-# key to that sound, or adds a key with it at the playhead and steps on, so tapping pads
-# spells out a phrase. Right-click a pad to remove it. Pads are kept between sessions.
+# ---------------------------------------------------------------- say box and soundboards
+# Type something and press enter (or say!): it becomes a phrase and plays.
+# Under it are two boards, swapped with the arrows at the bottom:
+# - sounds: + saves the control pad as a pad (named with up to 3 letters). Clicking a pad sets
+#   the selected key to that sound, or adds a key at the playhead and steps on, so tapping pads
+#   spells out a phrase.
+# - phrases: + saves the whole timeline as a named pad. Clicking one loads it and plays it.
+# Right-click a pad to rename or remove it. Both boards are kept between sessions.
+# In the booth the phrases board and the say box are greyed out: there you make it live.
 
 const PRESET_STEP := 0.25     # seconds the playhead moves on after adding a key from a pad
-const MAX_PRESETS := 16
-const PRESETS_FILE := "user://soundboard.json"
+const MAX_SOUNDS := 16
+const MAX_PHRASES := 64
+const SOUND_NAME_MAX := 3
+const PHRASE_NAME_MAX := 14
+const BOARD_FILE := "user://soundboard.json"
 const PREVIEW_SECONDS := 0.3
-var presets: Array = []
+var sounds: Array = []        # [{name, f}]
+var phrases: Array = []       # [{name, keys}]
+var board := "sounds"         # which board is showing
 var _preview_left := 0.0
+var _phrase_grid: GridContainer
+var _phrase_scroll: ScrollContainer
+var _board_label: Label
+var _pad_menu: PopupMenu
+var _menu_target := []        # [board, index] the menu is for
+var _locked := false          # in the booth
 
 
 func _setup_say_and_board() -> void:
@@ -204,13 +220,58 @@ func _setup_say_and_board() -> void:
 	%SayButton.disabled = false
 	%SayButton.tooltip_text = "say it (enter)"
 	%SayButton.pressed.connect(_say)
-	_load_presets()
+	# The phrases board sits where the sounds board is, and scrolls.
+	_phrase_scroll = ScrollContainer.new()
+	_phrase_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_phrase_scroll.custom_minimum_size.y = 85.0
+	_phrase_scroll.visible = false
+	_phrase_grid = GridContainer.new()
+	_phrase_grid.columns = 4
+	_phrase_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_phrase_grid.add_theme_constant_override("h_separation", 5)
+	_phrase_grid.add_theme_constant_override("v_separation", 5)
+	_phrase_scroll.add_child(_phrase_grid)
+	var box: Node = %Shapes.get_parent()
+	box.add_child(_phrase_scroll)
+	box.move_child(_phrase_scroll, %Shapes.get_index() + 1)
+	# Arrows at the bottom, where the empty space was.
+	var edit: Node = box.get_node("Edit")
+	var gap: Node = edit.get_node("Gap")
+	var switcher := HBoxContainer.new()
+	switcher.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	switcher.add_theme_constant_override("separation", 2)
+	var prev := Button.new()
+	prev.text = "‹"
+	var next := Button.new()
+	next.text = "›"
+	for b in [prev, next]:
+		b.focus_mode = Control.FOCUS_NONE
+		b.theme_type_variation = &"TallButton"
+		b.tooltip_text = "switch between your sounds and your phrases"
+		b.pressed.connect(_switch_board)
+	_board_label = Label.new()
+	_board_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_board_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	switcher.add_child(prev)
+	switcher.add_child(_board_label)
+	switcher.add_child(next)
+	edit.add_child(switcher)
+	edit.move_child(switcher, gap.get_index())
+	edit.remove_child(gap)
+	gap.queue_free()
+	# Right-click menu for pads.
+	_pad_menu = PopupMenu.new()
+	_pad_menu.add_item("rename", 0)
+	_pad_menu.add_item("remove", 1)
+	_pad_menu.id_pressed.connect(_on_pad_menu)
+	add_child(_pad_menu)
+	_load_board()
 	_rebuild_board()
 
 
 func _say() -> void:
 	%SayText.release_focus()
-	if synth == null:
+	if synth == null or _locked:
 		return
 	var keys := Speak.text_to_keys(%SayText.text, capture_frame())
 	if keys.is_empty():
@@ -219,44 +280,101 @@ func _say() -> void:
 	timeline.play()
 
 
-func _rebuild_board() -> void:
-	var grid: Control = %Shapes
-	for c in grid.get_children():
-		grid.remove_child(c)
-		c.queue_free()
-	for i in MAX_PRESETS:
-		var b := Button.new()
-		b.theme_type_variation = &"ChipButton"
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.clip_text = true
-		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size.y = 40 # empty pads keep the grid's height
-		if i < presets.size():
-			b.text = str(i + 1)
-			b.tooltip_text = "click: use this sound · right-click: remove it"
-			b.pressed.connect(_use_preset.bind(i))
-			b.gui_input.connect(_on_preset_input.bind(i))
-		elif i == presets.size():
-			b.text = "+"
-			b.tooltip_text = "save the control pad as a sound"
-			b.pressed.connect(_add_preset)
-		else:
-			b.disabled = true
-		grid.add_child(b)
-
-
-func _add_preset() -> void:
-	if synth == null or presets.size() >= MAX_PRESETS:
-		return
-	presets.append(capture_frame(true))
-	_save_presets()
+func _switch_board() -> void:
+	board = "phrases" if board == "sounds" else "sounds"
 	_rebuild_board()
 
 
-func _use_preset(i: int) -> void:
-	if i >= presets.size():
+# Called every frame: grey out what can't be used in the booth.
+func _update_board_lock() -> void:
+	var lock := booth_state == "booth"
+	if lock == _locked:
 		return
-	var f: Dictionary = presets[i].duplicate(true)
+	_locked = lock
+	%SayText.editable = not lock
+	%SayText.modulate.a = 0.4 if lock else 1.0
+	%SayButton.disabled = lock
+	_rebuild_board()
+
+
+func _pad(text: String) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.theme_type_variation = &"ChipButton"
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.clip_text = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size.y = 40 # empty pads keep the grid's height
+	return b
+
+
+func _rebuild_board() -> void:
+	_board_label.text = board
+	%Shapes.visible = board == "sounds"
+	_phrase_scroll.visible = board == "phrases"
+	for grid in [%Shapes, _phrase_grid]:
+		for c in grid.get_children():
+			grid.remove_child(c)
+			c.queue_free()
+	# Sounds: a fixed 2 x 8 grid.
+	for i in MAX_SOUNDS:
+		var b := _pad("")
+		if i < sounds.size():
+			b.text = sounds[i]["name"] if sounds[i]["name"] != "" else str(i + 1)
+			b.tooltip_text = "click: use this sound · right-click: rename or remove"
+			b.pressed.connect(_use_sound.bind(i))
+			b.gui_input.connect(_on_pad_input.bind("sounds", i, b))
+		elif i == sounds.size():
+			b.text = "+"
+			b.tooltip_text = "save the control pad as a sound"
+			b.pressed.connect(_add_sound.bind(b))
+		else:
+			b.disabled = true
+		%Shapes.add_child(b)
+	# Phrases: as many as you like, 4 across, scrolling.
+	var count := mini(phrases.size() + 1, MAX_PHRASES)
+	for i in maxi(count, 8):
+		var b := _pad("")
+		b.add_theme_font_size_override("font_size", 13)
+		if i < phrases.size():
+			b.text = phrases[i]["name"]
+			b.disabled = _locked
+			b.tooltip_text = "phrases are off in the booth" if _locked else "click: load and play · right-click: rename or remove"
+			b.pressed.connect(_use_phrase.bind(i))
+			b.gui_input.connect(_on_pad_input.bind("phrases", i, b))
+		elif i == phrases.size() and i < MAX_PHRASES:
+			b.text = "+"
+			b.tooltip_text = "save the timeline as a phrase"
+			b.pressed.connect(_add_phrase.bind(b))
+		else:
+			b.disabled = true
+		_phrase_grid.add_child(b)
+
+
+func _add_sound(button: Control) -> void:
+	if synth == null or sounds.size() >= MAX_SOUNDS:
+		return
+	var at := _rect_of(button)
+	sounds.append({"name": "", "f": capture_frame(true)})
+	_save_board()
+	_rebuild_board()
+	_ask_name("sounds", sounds.size() - 1, at)
+
+
+func _add_phrase(button: Control) -> void:
+	if timeline.keys.is_empty() or phrases.size() >= MAX_PHRASES:
+		return
+	var at := _rect_of(button)
+	phrases.append({"name": "phrase %d" % (phrases.size() + 1), "keys": timeline.keys.duplicate(true)})
+	_save_board()
+	_rebuild_board()
+	_ask_name("phrases", phrases.size() - 1, at)
+
+
+func _use_sound(i: int) -> void:
+	if i >= sounds.size():
+		return
+	var f: Dictionary = sounds[i]["f"].duplicate(true)
 	if timeline.playing or timeline.recording:
 		timeline.stop()
 	if timeline.selected != null:
@@ -270,11 +388,66 @@ func _use_preset(i: int) -> void:
 	_preview(f)
 
 
-func _on_preset_input(event: InputEvent, i: int) -> void:
+func _use_phrase(i: int) -> void:
+	if i >= phrases.size() or _locked:
+		return
+	timeline.set_keys(phrases[i]["keys"])
+	timeline.play()
+
+
+func _on_pad_input(event: InputEvent, which: String, i: int, button: Control) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
-		presets.remove_at(i)
-		_save_presets()
+		_menu_target = [which, i, button]
+		_pad_menu.position = Vector2i(get_viewport().get_mouse_position())
+		_pad_menu.popup()
+
+
+func _on_pad_menu(id: int) -> void:
+	if _menu_target.is_empty():
+		return
+	var list: Array = sounds if _menu_target[0] == "sounds" else phrases
+	var i: int = _menu_target[1]
+	if i >= list.size():
+		return
+	if id == 0:
+		_ask_name(_menu_target[0], i, _rect_of(_menu_target[2]))
+	else:
+		list.remove_at(i)
+		_save_board()
 		_rebuild_board.call_deferred()
+
+
+func _rect_of(c: Control) -> Rect2:
+	if is_instance_valid(c) and c.is_inside_tree():
+		return c.get_global_rect()
+	return Rect2(get_viewport().get_mouse_position(), Vector2(60, 40))
+
+
+# A little text box over the pad to type its name into.
+func _ask_name(which: String, i: int, r: Rect2) -> void:
+	var list: Array = sounds if which == "sounds" else phrases
+	var edit := LineEdit.new()
+	edit.max_length = SOUND_NAME_MAX if which == "sounds" else PHRASE_NAME_MAX
+	edit.text = list[i]["name"]
+	edit.placeholder_text = "name"
+	edit.add_theme_font_size_override("font_size", 13)
+	edit.add_theme_constant_override("minimum_character_width", 3)
+	add_child(edit)
+	edit.size = Vector2(maxf(r.size.x, 64.0 if which == "sounds" else 130.0), r.size.y)
+	edit.global_position = r.position
+	var finish := func(text: String):
+		if not is_instance_valid(edit) or edit.has_meta("done"):
+			return
+		edit.set_meta("done", true)
+		if i < list.size():
+			list[i]["name"] = text.strip_edges()
+			_save_board()
+		edit.queue_free()
+		_rebuild_board.call_deferred()
+	edit.text_submitted.connect(finish)
+	edit.focus_exited.connect(func(): finish.call(edit.text))
+	edit.grab_focus()
+	edit.select_all()
 
 
 # Sound a pose briefly, so you hear what a pad does.
@@ -294,24 +467,41 @@ func _update_preview(delta: float) -> void:
 		_update_voicing()
 
 
-func _save_presets() -> void:
-	var file := FileAccess.open(PRESETS_FILE, FileAccess.WRITE)
+func _save_board() -> void:
+	var file := FileAccess.open(BOARD_FILE, FileAccess.WRITE)
 	if file:
-		file.store_string(JSON.stringify(presets))
+		file.store_string(JSON.stringify({"sounds": sounds, "phrases": phrases}))
 
 
-func _load_presets() -> void:
-	presets.clear()
-	if not FileAccess.file_exists(PRESETS_FILE):
+static func _is_frame(f) -> bool:
+	return f is Dictionary and f.has_all(["px", "py", "mx", "my", "sz", "ti", "td"])
+
+
+func _load_board() -> void:
+	sounds.clear()
+	phrases.clear()
+	if not FileAccess.file_exists(BOARD_FILE):
 		return
-	var data = JSON.parse_string(FileAccess.get_file_as_string(PRESETS_FILE))
+	var data = JSON.parse_string(FileAccess.get_file_as_string(BOARD_FILE))
+	var raw_sounds: Array = []
 	if data is Array:
-		for f in data:
-			if f is Dictionary and f.has_all(["px", "py", "mx", "my", "sz", "ti", "td"]):
-				f["voiced"] = bool(f.get("voiced", true))
-				presets.append(f)
-				if presets.size() >= MAX_PRESETS:
-					break
+		raw_sounds = data # the first version kept only sounds, as bare frames
+	elif data is Dictionary:
+		raw_sounds = data.get("sounds", [])
+		for p in data.get("phrases", []):
+			if p is Dictionary and p.get("keys") is Array and not p["keys"].is_empty():
+				var keys: Array = []
+				for k in p["keys"]:
+					if k is Dictionary and _is_frame(k.get("f")):
+						k["f"]["voiced"] = bool(k["f"].get("voiced", true))
+						keys.append(k)
+				if not keys.is_empty() and phrases.size() < MAX_PHRASES:
+					phrases.append({"name": str(p.get("name", "")), "keys": keys})
+	for s in raw_sounds:
+		var f = s.get("f") if s is Dictionary and s.has("f") else s
+		if _is_frame(f) and sounds.size() < MAX_SOUNDS:
+			f["voiced"] = bool(f.get("voiced", true))
+			sounds.append({"name": str(s.get("name", "")) if s is Dictionary and s.has("f") else "", "f": f})
 
 
 # ---------------------------------------------------------------- the booth
@@ -647,7 +837,7 @@ the control pad: drag the tongue in its slice, press along the tube to close it,
 
 the say box: type something and press enter. it becomes a phrase you can tweak.
 
-your soundboard: + saves the control pad as a pad. click a pad to set the selected key to it, or to add a key at the playhead and step on, so tapping pads spells out a phrase. right-click a pad to remove it.
+your boards: the ‹ › arrows switch between sounds and phrases. on sounds, + saves the control pad as a pad (name it with up to 3 letters). click a pad to set the selected key to it, or to add a key at the playhead and step on, so tapping pads spells out a phrase. on phrases, + saves the whole timeline; click one to load and play it. right-click any pad to rename or remove it. in the booth, phrases and the say box are off, so your section is made fresh.
 
 the booth: walk into the booth next to the stage to make your section of the song. the song plays in your headphones and your phrase loops on the beat. press done and you're revealed on the stage: your section plays on its own, then joins the song.
 

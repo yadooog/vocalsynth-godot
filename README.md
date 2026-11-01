@@ -49,6 +49,10 @@ A quick automatic test runs first, and if it fails the GitHub **Actions** tab sh
   touch it.
 - **Timeline** (bottom right): **record** or **+ key** to make a 4-second phrase, **space**
   plays it. With a key selected, the control pad edits that key.
+- **Say box and boards** (under the control pad): type something to say it. The **‹ ›** arrows
+  switch between two boards: **sounds** (+ saves the control pad, names up to 3 letters) and
+  **phrases** (+ saves the whole timeline, scrolls). Right-click a pad to rename or remove it.
+  In the booth, phrases and the say box are greyed out.
 - **The stage**: the drums play there; stand on it to edit the beat. **loop on beat** repeats
   your phrase in time with the drums.
 - **The booth** (left of the stage): walk in to make your section of the song. Press **done**

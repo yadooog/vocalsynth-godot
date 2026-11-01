@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=45 format=3]
+[gd_resource type="Theme" load_steps=47 format=3]
 
 [ext_resource type="FontFile" path="res://fonts/Inter-Regular.otf" id="regular"]
 [ext_resource type="FontFile" path="res://fonts/Inter-SemiBold.otf" id="bold"]
@@ -645,6 +645,37 @@ corner_radius_bottom_left = 3
 corner_detail = 12
 anti_aliasing = true
 
+[sub_resource type="StyleBoxFlat" id="menu"]
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.9843, 0.9765, 0.9569, 1.0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.1490, 0.1490, 0.1490, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 12
+anti_aliasing = true
+
+[sub_resource type="StyleBoxFlat" id="menu_h"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.8941, 0.8706, 0.8196, 1.0)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 12
+anti_aliasing = true
+
 [sub_resource type="StyleBoxFlat" id="tip"]
 content_margin_left = 8.0
 content_margin_top = 4.0
@@ -798,6 +829,11 @@ LineEdit/colors/font_color = Color(0.1490, 0.1490, 0.1490, 1.0)
 LineEdit/colors/font_uneditable_color = Color(0.1490, 0.1490, 0.1490, 1.0)
 LineEdit/colors/font_placeholder_color = Color(0.4196, 0.4196, 0.4196, 1.0)
 LineEdit/font_sizes/font_size = 14
+PopupMenu/styles/panel = SubResource("menu")
+PopupMenu/styles/hover = SubResource("menu_h")
+PopupMenu/colors/font_color = Color(0.1490, 0.1490, 0.1490, 1.0)
+PopupMenu/colors/font_hover_color = Color(0.1490, 0.1490, 0.1490, 1.0)
+PopupMenu/font_sizes/font_size = 13
 TooltipPanel/styles/panel = SubResource("tip")
 TooltipLabel/colors/font_color = Color(1.0000, 1.0000, 1.0000, 1.0)
 TooltipLabel/font_sizes/font_size = 12
