@@ -96,7 +96,7 @@ func _ready() -> void:
 	%LoopButton.toggled.connect(func(on): timeline.looping = on)
 	%AddKey.pressed.connect(func(): timeline.add_key(capture_frame(true)))
 	%DeleteKey.pressed.connect(timeline.delete_selected)
-	%ClearKeys.pressed.connect(timeline.clear)
+	%ClearKeys.pressed.connect(_clear_all)
 	room = preload("res://room/room.gd").new()
 	character.get_parent().add_child(room)
 	beats = preload("res://room/beats.gd").new()
@@ -930,6 +930,14 @@ func _closure_edit(edit: Callable) -> void:
 	if timeline.selected != null and not timeline.playing and not timeline.recording:
 		edit.call()
 		voicebox.set_closures(timeline.closures_of_selected())
+
+
+# Clear all: drop the keys and let go of any closures a key was holding on the tract.
+func _clear_all() -> void:
+	timeline.clear()
+	voicebox.set_closures([])
+	if synth:
+		_update_voicing()
 
 
 # While a phrase plays, the key's own voicing decides when it sounds.
