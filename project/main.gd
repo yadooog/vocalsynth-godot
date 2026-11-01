@@ -398,8 +398,8 @@ func _use_phrase(i: int) -> void:
 func _on_pad_input(event: InputEvent, which: String, i: int, button: Control) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 		_menu_target = [which, i, button]
-		_pad_menu.position = Vector2i(get_viewport().get_mouse_position())
-		_pad_menu.popup()
+		_pad_menu.reset_size()
+		_pad_menu.popup(Rect2i(Vector2i(get_viewport().get_mouse_position()), Vector2i.ZERO))
 
 
 func _on_pad_menu(id: int) -> void:
