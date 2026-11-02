@@ -647,6 +647,7 @@ func _update_booth(delta: float) -> void:
 ## Online: someone else just finished in the booth. Their section plays on its own for one
 ## loop (they're in the spotlight), then joins the song, the same as your own reveal.
 func reveal_remote(i: int, who: String) -> void:
+	print("debug: reveal_remote ", i, " ", who, " state ", booth_state, " lp ", beats.loop_position())
 	if remote_reveal >= 0:
 		song.set_live(remote_reveal)
 	remote_reveal = i
@@ -667,6 +668,7 @@ func _update_remote_reveal() -> int:
 	if remote_reveal < 0:
 		return -1
 	if remote_reveal >= song.sections.size(): # the song was cleared
+		print("debug: remote reveal cleared")
 		end_remote_reveal()
 		return -1
 	var lp: float = beats.loop_position()
@@ -674,6 +676,7 @@ func _update_remote_reveal() -> int:
 		if not _remote_solo:
 			_remote_solo = true
 		else:
+			print("debug: remote reveal done lp ", lp, " last ", _remote_last_lp)
 			song.set_live(remote_reveal)
 			end_remote_reveal()
 			return -1

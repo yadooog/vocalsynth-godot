@@ -67,6 +67,7 @@ func clear() -> void:
 func sync(server_clock: float, delta: float) -> void:
 	var err := server_clock - clock
 	if absf(err) > 0.5:
+		print("debug: clock jump ", err)
 		clock = server_clock
 		_next_step = int(ceil(clock / STEP_SECONDS))
 	else:

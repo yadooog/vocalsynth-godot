@@ -152,6 +152,7 @@ func _on_message(m: Dictionary) -> void:
 			booth_owner = m["id"]
 			main.room.set_booth_busy(booth_owner != null)
 		"section":
+			print("debug: section from ", m["owner"], " me ", you)
 			if m["owner"] != you:
 				_add_section(m, false)
 		"song-clear":
