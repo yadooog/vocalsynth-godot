@@ -113,6 +113,7 @@ func _ready() -> void:
 	net = preload("res://net/net.gd").new()
 	net.main = self
 	add_child(net)
+	_build_game_ui()
 	character.position = Vector3(0, 0, 4)
 	# For testing the web build: index.html?spawn=booth starts you at the booth.
 	if OS.has_feature("web") and str(JavaScriptBridge.eval("location.search")).contains("spawn=booth"):
@@ -151,6 +152,8 @@ func _process(delta: float) -> void:
 	var solo := reveal_index if booth_state == "reveal" else -1
 	if solo < 0:
 		solo = _update_remote_reveal()
+	if solo < 0 and listen >= 0 and listen < song.sections.size():
+		solo = listen
 	if song:
 		song.update(delta, lp, 1.0 if booth_state == "booth" else song_volume, time, solo)
 	if booth_state == "reveal":
@@ -175,6 +178,8 @@ func _update_stage() -> void:
 	var x := character.position.x
 	var z := character.position.z
 	song_volume = 0.8 * beats.volume_at(Vector2(x - World.STAGE["x"], z - World.STAGE["z"]).length())
+	if net and (net.phase() == "vote" or net.phase() == "results"):
+		song_volume = 0.8 # everyone hears the whole song while voting
 	beats.set_volume(0.8 if booth_state == "booth" else song_volume) # in the booth you hear it all on headphones
 	%BeatPanel.visible = World.on_stage(x, z)
 	var lp: float = beats.loop_position()
@@ -539,6 +544,9 @@ var booth_timer: Label
 var booth_button: Button
 var song_label: Label
 var spotlight: Node3D
+var listen := -1              # in a vote: the loop you're listening to on its own
+var game_card: PanelContainer # the round, top right (net/game_card.gd)
+var round_button: Button      # "play a round", in the top bar
 
 
 func _build_booth_ui() -> void:
@@ -600,14 +608,17 @@ func _update_booth(delta: float) -> void:
 		return
 	song_label.text = "song %d/%d" % [song.sections.size(), song.MAX_SECTIONS]
 	%TopBar.get_node("Row/Online").text = "%d online" % net.count() if net and net.is_online() else "offline"
+	if round_button:
+		round_button.visible = net.is_online() and not net.in_game()
 	var inside := World.in_booth(character.position.x, character.position.z)
 	match booth_state:
 		"room":
 			_busy_left -= delta
-			if inside and net.booth_taken():
-				# Someone else is in there: step back out.
+			var refusal: String = net.booth_refusal() if inside else ""
+			if refusal != "":
+				# Someone else is in there, or it isn't your turn: step back out.
 				_put_character(World.BOOTH_EXIT, PI / 2)
-				booth_title.text = "%s is in the booth" % net.booth_owner_name()
+				booth_title.text = refusal
 				booth_timer.text = ""
 				booth_button.visible = false
 				booth_bar.visible = true
@@ -682,6 +693,42 @@ func end_remote_reveal() -> void:
 		_busy_left = 0.0
 
 
+## Online: the room replaced the whole song (a new round, or it turned down our section).
+func replace_song(sections: Array) -> void:
+	end_remote_reveal()
+	if booth_state == "reveal_wait" or booth_state == "reveal":
+		booth_state = "room"
+		spotlight.visible = false
+		booth_bar.visible = false
+	reveal_index = -1
+	listen = -1
+	song.clear()
+	for s in sections:
+		song.set_live(song.add_section(s["keys"], str(s.get("owner", "")), str(s.get("name", ""))))
+
+
+## On your turn in a round: straight into the booth, wherever you are.
+func go_to_booth() -> void:
+	if booth_state == "room":
+		_put_character(Vector2(World.BOOTH["x"], World.BOOTH["z"]), PI / 2)
+
+
+func _build_game_ui() -> void:
+	game_card = preload("res://net/game_card.gd").new()
+	game_card.main = self
+	game_card.net = net
+	add_child(game_card)
+	round_button = Button.new()
+	round_button.text = "play a round"
+	round_button.focus_mode = Control.FOCUS_NONE
+	round_button.visible = false
+	round_button.pressed.connect(net.start_game)
+	var row: Node = %TopBar.get_node("Row")
+	row.add_child(round_button)
+	row.move_child(round_button, %HelpButton.get_index())
+	move_child(%Help, -1) # help stays on top
+
+
 func _enter_booth() -> void:
 	net.enter_booth()
 	booth_state = "booth"
@@ -694,6 +741,7 @@ func _enter_booth() -> void:
 		booth_title.text = "the song is full"
 		booth_timer.text = ""
 		booth_button.text = "new song"
+		booth_button.visible = not net.in_game()
 		_place_booth_bar()
 		return
 	booth_left = BOOTH_SECONDS
@@ -709,6 +757,8 @@ func _on_booth_button() -> void:
 	if booth_state != "booth":
 		return
 	if song.is_full():
+		if net.in_game():
+			return
 		song.clear()
 		net.clear_song()
 		_enter_booth()
@@ -729,7 +779,7 @@ func _finish_booth() -> void:
 		booth_bar.visible = false
 		_put_character(World.BOOTH_EXIT, PI / 2)
 		return
-	reveal_index = song.add_section(keys)
+	reveal_index = song.add_section(keys, net.you, net.my_name)
 	if reveal_index >= 0:
 		net.add_section(keys)
 	timeline.clear()
@@ -788,7 +838,9 @@ var _last_loop_pos := 0.0
 
 func _on_view_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
-		%SayText.release_focus()
+		var typing := get_viewport().gui_get_focus_owner()
+		if typing:
+			typing.release_focus()
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			stick = [event.position, event.position] if event.pressed else null
@@ -963,6 +1015,8 @@ func _layout() -> void:
 	beat.position = Vector2(screen.x - GAP - beat_w, tl.position.y - ROW_GAP - beat.size.y)
 
 	focus = Vector2((GAP + left_w + screen.x) * 0.5, maxf(120.0, tl.position.y * 0.55))
+	if game_card:
+		game_card.place()
 
 
 const HELP := """getting started: drag on the voice box to make a sound. press record and play with the control pad, or add keys with + key, then tweak them on the timeline. space plays.
@@ -976,6 +1030,8 @@ the say box: type something and press enter. it becomes a phrase you can tweak.
 your boards: the ‹ › arrows switch between sounds and phrases. on sounds, + saves the control pad as a pad (name it with up to 3 letters). click a pad to set the selected key to it, or to add a key at the playhead and step on, so tapping pads spells out a phrase. on phrases, + saves the whole timeline; click one to load and play it. right-click any pad to rename or remove it. in the booth, phrases and the say box are off, so your section is made fresh.
 
 the booth: walk into the booth next to the stage to make your section of the song. the song plays in your headphones and your phrase loops on the beat. press done and you're revealed on the stage: your section plays on its own, then joins the song.
+
+online: everyone here shares the booth, the song and the beat. play a round starts a game: one player picks the brief (a word, a theme or a genre), then everyone takes a turn in the booth to add a loop. then you vote for your favourite loop (not your own). each vote is a point, and the top loop stays on into the next round for 2 more points.
 
 the beat: the drums play on the stage at 120 bpm. a phrase is 4 seconds = 2 bars, so loop on beat repeats yours in time with the drums. stand on the stage to change the beat.
 

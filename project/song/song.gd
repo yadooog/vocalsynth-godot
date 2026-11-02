@@ -11,7 +11,7 @@ const SINGER_SCALE := 0.8
 const HEADS := [Color("#a8dcb4"), Color("#f4c87a"), Color("#b9b0f2"), Color("#f29a8a"), Color("#8fd3e8"), Color("#e8e08f")]
 const OUTFITS := [Color("#f4a9c4"), Color("#6fb8e8"), Color("#f4eec0"), Color("#86c79a"), Color("#e9a8f0"), Color("#9a9aa6")]
 
-var sections: Array = []   # [{keys, synth, player, touching, singer, live}]
+var sections: Array = []   # [{keys, synth, player, touching, singer, live, owner, name}]
 var stage_parent: Node3D   # where singers are added (the room)
 var _character_script := preload("res://character/character.gd")
 
@@ -21,7 +21,8 @@ func is_full() -> bool:
 
 
 ## Adds a phrase to the song. It stays silent (and its singer hidden) until set_live().
-func add_section(keys: Array) -> int:
+## Online, `owner` is the id of the player who made it and `who` their name.
+func add_section(keys: Array, owner := "", who := "") -> int:
 	if is_full() or keys.is_empty() or not ClassDB.class_exists("PinkTrombone"):
 		return -1
 	var i := sections.size()
@@ -47,7 +48,7 @@ func add_section(keys: Array) -> int:
 	if stage_parent:
 		stage_parent.add_child(singer)
 	sections.append({"keys": keys.duplicate(true), "synth": synth, "player": player,
-		"touching": [false, false], "singer": singer, "live": false})
+		"touching": [false, false], "singer": singer, "live": false, "owner": owner, "name": who})
 	return i
 
 

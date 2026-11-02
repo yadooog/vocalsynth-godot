@@ -157,6 +157,51 @@ func _initialize() -> void:
 		main.phrases.clear()
 		main._save_board()
 		print("ok: soundboard")
+		# Rounds (online, faked here): the card follows the game; the booth waits for your turn.
+		var net = main.net
+		main.booth_state = "room"
+		net.connected = true
+		net.you = "p0"
+		var scores := [{"id": "p0", "name": "gurgle", "points": 0}, {"id": "p1", "name": "warble", "points": 3}]
+		net.game = {"phase": "brief", "round": 1, "setter": "p0", "suggestions": ["jazz", "cats", "rain"],
+			"ends": main.beats.clock + 30.0, "scores": scores}
+		net.game_changed.emit()
+		if not main.game_card.visible or main.game_card._brief_edit == null:
+			printerr("FAIL: round card did not show the brief box")
+			ok = false
+		net.game = {"phase": "build", "round": 1, "brief": "jazz", "turn": "p1", "queue": ["p0"],
+			"ends": main.beats.clock + 30.0, "scores": scores}
+		net.game_changed.emit()
+		character.position = Vector3(World.BOOTH["x"], 0, World.BOOTH["z"])
+		main._update_booth(0.1)
+		if main.booth_state != "room" or World.in_booth(character.position.x, character.position.z):
+			printerr("FAIL: the booth let you in out of turn")
+			ok = false
+		net.game["turn"] = "p0"
+		net.game_changed.emit()
+		main.go_to_booth()
+		main._update_booth(0.1)
+		if main.booth_state != "booth":
+			printerr("FAIL: the booth did not let you in on your turn (%s)" % main.booth_state)
+			ok = false
+		main._finish_booth() # nothing made: just step out
+		var keys := [{"t": 0.0, "ease": "smooth", "f": main.capture_frame(true)}]
+		main.replace_song([{"i": 0, "owner": "p1", "name": "warble", "keys": keys}])
+		net.game = {"phase": "vote", "round": 1, "brief": "jazz", "ends": main.beats.clock + 30.0, "voted": [],
+			"sections": [{"i": 0, "owner": "p1", "name": "warble", "stays": 0}], "scores": scores}
+		net.game_changed.emit()
+		if main.song.sections.size() != 1 or not main.song.sections[0]["live"]:
+			printerr("FAIL: the room's song did not replace ours")
+			ok = false
+		main.listen = 0
+		await process_frame
+		net.game = {"phase": "free"}
+		net.connected = false
+		net.game_changed.emit()
+		if main.game_card.visible or main.listen != -1:
+			printerr("FAIL: round card stayed up after the game")
+			ok = false
+		print("ok: rounds")
 
 	quit(0 if ok else 1)
 

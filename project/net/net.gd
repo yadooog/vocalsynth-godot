@@ -2,7 +2,10 @@ extends Node
 ## Online play: one shared room over a WebSocket to the game's server (server/godot.js in the
 ## vocalcordgame repo). Sends where you are and the sound you're making; shows and plays
 ## everyone else. The booth, the song and the beat are shared. If the server can't be reached
-## the game just carries on offline.
+## the game just carries on offline. Rounds (a game) are run by the server: `game` is its
+## latest word on them (server/godot_game.js), and game_card.gd shows it.
+
+signal game_changed
 
 const DEFAULT_URL := "wss://vocalcordgame.onrender.com/godot-ws"
 const SEND_EVERY := 1.0 / 15.0
@@ -14,6 +17,8 @@ var main: Control
 var ws := WebSocketPeer.new()
 var connected := false
 var you := ""                  # our id in the room
+var my_name := ""
+var game := {"phase": "free"}  # the round: phase (free, brief, build, vote, results), brief, turn...
 var others := {}               # id -> {name, node, synth, player, touching, target, ry, f}
 var booth_owner = null         # id of who's in the booth, or null
 var _send_left := 0.0
@@ -54,6 +59,9 @@ func _ready() -> void:
 ## For browser tests: a little of the game's state, readable as window.__game.
 func _write_debug() -> void:
 	var d := {"online": connected, "you": you, "others": others.size(), "booth": main.booth_state,
+		"phase": phase(), "turn": game.get("turn"), "brief": game.get("brief", ""), "round": game.get("round", 0),
+		"bar": main.booth_title.text if main.booth_bar.visible else "", "spot": main.spotlight.visible,
+		"listen": main.listen, "card": main.game_card.visible if main.game_card else false,
 		"booth_owner": booth_owner, "song": main.song.sections.size(),
 		"live": main.song.sections.map(func(x): return x["live"]),
 		"remote_reveal": main.remote_reveal, "loop": main.beats.loop_index(),
@@ -95,6 +103,8 @@ func _process(delta: float) -> void:
 				_remove(id)
 			booth_owner = null
 			main.room.set_booth_busy(false)
+			game = {"phase": "free"}
+			game_changed.emit()
 		# Try again now and then, waiting longer each time.
 		_retry_left -= delta
 		if _retry_left <= 0.0:
@@ -137,6 +147,7 @@ func _on_message(m: Dictionary) -> void:
 			connected = true
 			_retry_wait = 3.0
 			you = m["you"]["id"]
+			my_name = m["you"]["name"]
 			for p in m["players"]:
 				_add(p)
 			main.song.clear()
@@ -150,6 +161,8 @@ func _on_message(m: Dictionary) -> void:
 			_have_clock = true
 			_best_rtt = 1e9
 			_ping_left = 0.0 # measure the round trip straight away
+			game = m.get("game", {"phase": "free"})
+			game_changed.emit()
 		"joined":
 			if others.has(m["p"]["id"]):
 				others[m["p"]["id"]]["name"] = m["p"]["name"]
@@ -175,6 +188,11 @@ func _on_message(m: Dictionary) -> void:
 		"song-clear":
 			main.song.clear()
 			main.end_remote_reveal()
+		"song":
+			main.replace_song(m["sections"])
+		"game":
+			game = m
+			game_changed.emit()
 		"beat":
 			main.beats.pattern = m["pattern"]
 		"pong":
@@ -190,7 +208,7 @@ func _on_message(m: Dictionary) -> void:
 
 
 func _add_section(s: Dictionary, quiet: bool) -> void:
-	var i: int = main.song.add_section(s["keys"])
+	var i: int = main.song.add_section(s["keys"], str(s.get("owner", "")), str(s.get("name", "")))
 	if i < 0:
 		return
 	if quiet:
@@ -247,6 +265,67 @@ func _on_beat_edited(drum: int, step: int) -> void:
 
 func count() -> int:
 	return others.size() + 1
+
+
+# ---------------------------------------------------------------- rounds
+
+func phase() -> String:
+	return str(game.get("phase", "free")) if connected else "free"
+
+
+func in_game() -> bool:
+	return phase() != "free"
+
+
+func my_turn() -> bool:
+	return phase() == "build" and game.get("turn") == you
+
+
+## "you" for us, else the name the server gave.
+func name_of(id, fallback := "someone") -> String:
+	if id == null:
+		return fallback
+	if id == you:
+		return "you"
+	var o = others.get(id)
+	return o["name"] if o else fallback
+
+
+## Why you can't go in the booth right now, or "" if you can.
+func booth_refusal() -> String:
+	if booth_taken():
+		return "%s is in the booth" % booth_owner_name()
+	match phase():
+		"brief":
+			return "wait for the brief"
+		"build":
+			return "" if my_turn() else "it's %s's turn" % name_of(game.get("turn"), str(game.get("turnName", "someone")))
+		"vote":
+			return "voting now"
+		"results":
+			return "next round soon"
+	return ""
+
+
+## Seconds left in this part of the round, on the room's clock.
+func time_left() -> float:
+	return maxf(0.0, float(game.get("ends", 0.0)) - main.beats.clock)
+
+
+func start_game() -> void:
+	_send({"t": "game-start"})
+
+
+func stop_game() -> void:
+	_send({"t": "game-stop"})
+
+
+func send_brief(text: String) -> void:
+	_send({"t": "brief", "text": text})
+
+
+func vote(i: int) -> void:
+	_send({"t": "vote", "i": i})
 
 
 # ---------------------------------------------------------------- everyone else

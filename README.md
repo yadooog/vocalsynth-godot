@@ -42,7 +42,7 @@ A quick automatic test runs first, and if it fails the GitHub **Actions** tab sh
 
 ## Controls
 
-- **Walk**: WASD / arrow keys, or press and drag in the room. Scroll to zoom.
+- **Walk**: WASD / arrow keys, or press and drag in the room. Shift jumps. Scroll to zoom.
 - **Control pad** (bottom left): drag the tongue in its slice, press along the tube to close
   it, the **pitch** pad (left/right note, up tense, down breathy), the **mouth** pad (lips and
   jaw) and the **size** slider (small squeaky voice to big low one). Sound plays while you
@@ -57,6 +57,11 @@ A quick automatic test runs first, and if it fails the GitHub **Actions** tab sh
   your phrase in time with the drums.
 - **The booth** (left of the stage): walk in to make your section of the song. Press **done**
   and you're revealed on the stage, then your section joins the song with its own singer.
+- **Online**: everyone on the website's /godot page shares one room: you see and hear each
+  other, and the booth, the song and the beat are shared. **play a round** (top bar) starts a
+  game: one player picks the brief (a word, a theme or a genre), everyone takes a turn in the
+  booth, then everyone votes for a loop that isn't theirs. A vote is a point; the top loop stays
+  on into the next round and its owner gets 2 more.
 - **?** (top left) lists the keyboard shortcuts.
 
 ## What's where
@@ -67,6 +72,7 @@ A quick automatic test runs first, and if it fails the GitHub **Actions** tab sh
 | `project/` | The Godot project. `main.tscn`/`main.gd` lay out the screen and connect everything; `voicebox.gd` is the tract, `xy_pad.gd` the pads and slider, `timeline.gd` the phrase editor. |
 | `project/room/` | The hub room (`world.gd` layout and walking, `room.gd` builds it), the drums (`beats.gd`) and the beat grid. |
 | `project/song/` | The shared song: each section from the booth plays on its own voice with a singer. |
+| `project/net/` | Online play: `net.gd` talks to the website's server (`server/godot.js` and `server/godot_game.js` in the vocalcordgame repo); `game_card.gd` shows the round. |
 | `project/theme.tres` | The paper look, made by `tools/make_theme.py` (edit that, then run it). |
 | `project/bin/` | The compiled engine for Mac, Windows, Linux and web (made by GitHub, don't edit). |
 | `src/synth/` | The voice engine in plain C++ (no Godot code), ported file by file from pink-trombone-mod. |
