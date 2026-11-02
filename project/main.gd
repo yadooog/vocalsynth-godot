@@ -784,8 +784,6 @@ var _shift_was := false
 func _walk(delta: float) -> void:
 	# Shift jumps (polled like the walking keys, so it works however focus is set).
 	var shift := Input.is_key_pressed(KEY_SHIFT) and not get_viewport().gui_get_focus_owner() is LineEdit
-	if shift != _shift_was:
-		print("debug: shift ", shift, " air ", air, " state ", booth_state)
 	if shift and not _shift_was:
 		_jump()
 	_shift_was = shift
