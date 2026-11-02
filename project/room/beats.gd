@@ -84,6 +84,11 @@ func current_step() -> int:
 	return int(clock / STEP_SECONDS) % STEPS
 
 
+## Which loop we're in (counts up by one every 4 s).
+func loop_index() -> int:
+	return floori(clock / LOOP_SECONDS)
+
+
 ## How far into the 2-bar loop we are (0 .. 4 s).
 func loop_position() -> float:
 	return fmod(clock, LOOP_SECONDS)

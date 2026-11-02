@@ -530,10 +530,9 @@ var booth_state := "room"     # room, booth, reveal_wait, reveal
 var booth_left := 0.0
 var reveal_index := -1
 var _zoom_before := 1.0
-var _reveal_last_lp := 0.0
+var _reveal_loop := 0         # the loop your new section plays alone in
 var remote_reveal := -1       # someone else's new section, playing on its own for a loop
-var _remote_solo := false     # false: waiting for the next loop; true: playing it alone
-var _remote_last_lp := 0.0
+var _remote_loop := 0         # ... in this loop
 var booth_bar: PanelContainer
 var booth_title: Label
 var booth_timer: Label
@@ -632,16 +631,15 @@ func _update_booth(delta: float) -> void:
 			if booth_left <= 0.0 or not inside:
 				_finish_booth()
 		"reveal_wait", "reveal":
-			var lp: float = beats.loop_position()
-			if lp < _reveal_last_lp: # a new loop just started
-				if booth_state == "reveal_wait":
-					booth_state = "reveal"
-				else:
-					song.set_live(reveal_index)
-					booth_state = "room"
-					spotlight.visible = false
-					booth_bar.visible = false
-			_reveal_last_lp = lp
+			# Wait for the next loop, play it alone for that loop, then it joins the song.
+			var n: int = beats.loop_index()
+			if n > _reveal_loop:
+				song.set_live(reveal_index)
+				booth_state = "room"
+				spotlight.visible = false
+				booth_bar.visible = false
+			elif n == _reveal_loop:
+				booth_state = "reveal"
 
 
 ## Online: someone else just finished in the booth. Their section plays on its own for one
@@ -650,8 +648,7 @@ func reveal_remote(i: int, who: String) -> void:
 	if remote_reveal >= 0:
 		song.set_live(remote_reveal)
 	remote_reveal = i
-	_remote_solo = false
-	_remote_last_lp = beats.loop_position()
+	_remote_loop = beats.loop_index() + 1
 	spotlight.visible = true
 	if booth_state == "room":
 		booth_title.text = "%s's section" % who
@@ -669,16 +666,12 @@ func _update_remote_reveal() -> int:
 	if remote_reveal >= song.sections.size(): # the song was cleared
 		end_remote_reveal()
 		return -1
-	var lp: float = beats.loop_position()
-	if lp < _remote_last_lp:
-		if not _remote_solo:
-			_remote_solo = true
-		else:
-			song.set_live(remote_reveal)
-			end_remote_reveal()
-			return -1
-	_remote_last_lp = lp
-	return remote_reveal if _remote_solo else -1
+	var n: int = beats.loop_index()
+	if n > _remote_loop:
+		song.set_live(remote_reveal)
+		end_remote_reveal()
+		return -1
+	return remote_reveal if n == _remote_loop else -1
 
 
 func end_remote_reveal() -> void:
@@ -754,7 +747,7 @@ func _finish_booth() -> void:
 	_put_character(World.REVEAL_SPOT, 0.0)
 	spotlight.visible = true
 	booth_state = "reveal_wait"
-	_reveal_last_lp = beats.loop_position()
+	_reveal_loop = beats.loop_index() + 1
 
 
 func _put_character(p: Vector2, facing: float) -> void:
