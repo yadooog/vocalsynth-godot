@@ -4,10 +4,7 @@ extends Node
 ## mouths along. main.gd drives it every frame with update().
 
 const MAX_SECTIONS := 6
-const SINGER_X := [-20.2, -18.8, -17.4, -14.6, -13.2, -11.8] # on the stage, either side of the mic
-const SINGER_Y := 0.6                                        # the stage's top
-const SINGER_Z := -14.4
-const SINGER_SCALE := 0.8
+const SINGER_SCALE := 0.8   # they stand at World.SINGER_SPOTS, on the stage
 const HEADS := [Color("#a8dcb4"), Color("#f4c87a"), Color("#b9b0f2"), Color("#f29a8a"), Color("#8fd3e8"), Color("#e8e08f")]
 const OUTFITS := [Color("#f4a9c4"), Color("#6fb8e8"), Color("#f4eec0"), Color("#86c79a"), Color("#e9a8f0"), Color("#9a9aa6")]
 
@@ -42,7 +39,8 @@ func add_section(keys: Array, owner := "", who := "") -> int:
 	var singer: Node3D = _character_script.new()
 	singer.head_color = HEADS[i % HEADS.size()]
 	singer.outfit_color = OUTFITS[i % OUTFITS.size()]
-	singer.position = Vector3(SINGER_X[i], SINGER_Y, SINGER_Z)
+	var spot: Vector2 = World.SINGER_SPOTS[i]
+	singer.position = Vector3(spot.x, World.height(spot.x, spot.y), spot.y)
 	singer.scale = Vector3.ONE * SINGER_SCALE
 	singer.visible = false
 	if stage_parent:

@@ -8,32 +8,31 @@ const MAP_HX := 110.0            # the whole map: hills all round the plaza, to 
 const MAP_HZ := 90.0
 const WALK_SPEED := 8.0          # units per second
 const PLAYER_RADIUS := 0.8       # keeps characters off the walls
+const MAX_CLIMB := 1.2           # the highest step you can walk up (the stage's first stair is 1.1)
+# sam's Blender models are drawn at twice the game's size: sam's character reference box is
+# 7 m tall and the character is 3.5 m. StageShape (made by tools/import_models.py) holds
+# their measurements in sam's units.
+const MODEL_SCALE := 0.5
 
 # Solid things you walk around. Circles: {shape "circle", x, z, r, kind}.
 # Boxes: {shape "box", x, z, w, d, kind} (centred on x, z). `kind` only matters for drawing.
+# The stage itself isn't here: it's too tall to step up onto except by its stairs (see step()).
 const OBSTACLES := [
-	{"shape": "circle", "x": -9.0, "z": -7.0, "r": 0.9, "kind": "column"},
-	{"shape": "circle", "x": 9.0, "z": -7.0, "r": 0.9, "kind": "column"},
-	{"shape": "circle", "x": -9.0, "z": 7.0, "r": 0.9, "kind": "column"},
-	{"shape": "circle", "x": 9.0, "z": 7.0, "r": 0.9, "kind": "column"},
-	{"shape": "circle", "x": 0.0, "z": 0.0, "r": 1.6, "kind": "planter"},
 	{"shape": "circle", "x": -24.0, "z": -16.0, "r": 1.1, "kind": "tree"},
 	{"shape": "circle", "x": 24.0, "z": -16.0, "r": 1.1, "kind": "tree"},
 	{"shape": "circle", "x": -24.0, "z": 16.0, "r": 1.1, "kind": "tree"},
 	{"shape": "circle", "x": 24.0, "z": 16.0, "r": 1.1, "kind": "tree"},
-	{"shape": "circle", "x": 0.0, "z": -18.0, "r": 1.1, "kind": "tree"},
 	{"shape": "circle", "x": -14.0, "z": 17.0, "r": 0.8, "kind": "plant"},
 	{"shape": "circle", "x": 14.0, "z": 17.0, "r": 0.8, "kind": "plant"},
 	{"shape": "circle", "x": 27.0, "z": 0.0, "r": 0.8, "kind": "plant"},
 	{"shape": "circle", "x": -27.0, "z": 0.0, "r": 0.8, "kind": "plant"},
-	{"shape": "box", "x": -20.0, "z": -5.0, "w": 5.0, "d": 1.0, "kind": "bench"},
-	{"shape": "box", "x": -12.0, "z": -5.0, "w": 5.0, "d": 1.0, "kind": "bench"},
 	{"shape": "box", "x": 20.0, "z": 11.0, "w": 1.0, "d": 5.0, "kind": "bench"},
-	{"shape": "box", "x": -16.0, "z": -15.0, "w": 10.0, "d": 4.0, "kind": "stage"},
 	{"shape": "box", "x": 18.0, "z": -12.0, "w": 2.0, "d": 2.0, "kind": "crate"},
 	{"shape": "box", "x": 20.4, "z": -12.6, "w": 2.0, "d": 2.0, "kind": "crate"},
 	{"shape": "box", "x": 19.0, "z": -9.8, "w": 2.0, "d": 2.0, "kind": "crate"},
-	{"shape": "box", "x": 6.0, "z": 15.0, "w": 8.0, "d": 1.6, "kind": "table"},
+	# Speakers on the big rug, either side of the stage.
+	{"shape": "box", "x": -16.5, "z": -1.0, "w": 1.8, "d": 1.5, "kind": "speaker"},
+	{"shape": "box", "x": 16.5, "z": -1.0, "w": 1.8, "d": 1.5, "kind": "speaker"},
 	# The booth, left of the stage: low walls, open on the side facing the stage.
 	{"shape": "box", "x": -27.85, "z": -9.5, "w": 0.3, "d": 4.0, "kind": "booth"},
 	{"shape": "box", "x": -26.0, "z": -11.35, "w": 4.0, "d": 0.3, "kind": "booth"},
@@ -43,15 +42,19 @@ const OBSTACLES := [
 # The booth: step inside to make your section of the song in private.
 const BOOTH := {"x": -26.0, "z": -9.5, "w": 4.0, "d": 4.0}
 const BOOTH_EXIT := Vector2(-22.6, -9.5)   # where you're put when you walk out
-const REVEAL_SPOT := Vector2(-16.0, -11.2) # where you stand for your reveal, in front of the mic
+const REVEAL_SPOT := Vector2(0.0, -4.6)    # where you stand for your reveal: front of the stage, at the mic
+const MIC := Vector2(0.0, -3.6)
+# Where the song's singers stand on the stage: an arc behind the mic.
+const SINGER_SPOTS := [Vector2(-10.5, -6.5), Vector2(-7.0, -7.9), Vector2(-3.5, -8.7),
+	Vector2(3.5, -8.7), Vector2(7.0, -7.9), Vector2(10.5, -6.5)]
 
-# Rugs: flat, walkable, named areas.
+# Rugs: named areas, each one sam's rug model (a raised disc with a bevelled edge) scaled to
+# its size. The first is the big one the stage stands on, in the middle of the plaza.
 const RUGS := [
-	{"x": 0.0, "z": 0.0, "r": 6.0, "color": Color("#f2cfee"), "name": "~/middle"},
-	{"x": -16.0, "z": -9.5, "r": 5.0, "color": Color("#f4eec0"), "name": "~/stage"},
-	{"x": 21.0, "z": 14.0, "r": 5.0, "color": Color("#d4f2dc"), "name": "~/quiet corner"},
-	{"x": 18.0, "z": -4.0, "r": 4.0, "color": Color("#cdeff6"), "name": "~/crates"},
-	{"x": -18.0, "z": 11.0, "r": 5.0, "color": Color("#e2def8"), "name": "~/lounge"},
+	{"x": 0.0, "z": 0.0, "r": StageShape.RUG_R * MODEL_SCALE, "color": Color("#f4eec0"), "name": "~/stage"},
+	{"x": 22.5, "z": 14.5, "r": 5.0, "color": Color("#d4f2dc"), "name": "~/quiet corner"},
+	{"x": 25.5, "z": -3.0, "r": 4.0, "color": Color("#cdeff6"), "name": "~/crates"},
+	{"x": -24.5, "z": 7.0, "r": 5.0, "color": Color("#e2def8"), "name": "~/lounge"},
 	# Out in the hills.
 	{"x": 0.0, "z": -64.0, "r": 5.0, "color": Color("#f6d9c4"), "name": "~/hilltop"},
 	{"x": 64.0, "z": 30.0, "r": 4.5, "color": Color("#cde3f6"), "name": "~/pond"},
@@ -70,12 +73,23 @@ const PLATEAUS := [
 const POND := {"x": 64.0, "z": 16.0, "r": 9.0, "water": 0.4}
 const FOREST := {"x": -76.0, "z": 4.0, "r": 26.0, "clearing": 8.0}
 
-const STAGE := {"x": -16.0, "z": -9.5, "r": 5.0} # the ~/stage rug: stand here to edit the beat
+const STAGE := {"x": 0.0, "z": -9.0}        # the middle of the stage, where the drums play from
 
 
-## Ground height at (x, z). The plaza is flat at 0; outside it the ground rolls, rises into
-## the plateaus, dips at the pond and climbs steeply at the map's edge.
+## Height of whatever you'd stand on at (x, z): the ground, a rug or the stage.
 static func height(x: float, z: float) -> float:
+	var h := ground(x, z)
+	# Rugs are raised a little, and the stage stands on the big one.
+	for r in RUGS:
+		var top := rug_top(r["r"], Vector2(x - r["x"], z - r["z"]).length())
+		if top >= 0.0:
+			h = maxf(h, rug_height(r) + top)
+	return maxf(h, stage_height(x, z))
+
+
+## The ground itself at (x, z). The plaza is flat at 0; outside it the ground rolls, rises into
+## the plateaus, dips at the pond and climbs steeply at the map's edge.
+static func ground(x: float, z: float) -> float:
 	var out_x := maxf(0.0, absf(x) - WIDTH / 2.0)
 	var out_z := maxf(0.0, absf(z) - DEPTH / 2.0)
 	var wild := smoothstep(1.0, 14.0, Vector2(out_x, out_z).length())
@@ -89,7 +103,7 @@ static func height(x: float, z: float) -> float:
 	var pd := Vector2(x - POND["x"], z - POND["z"]).length()
 	h = lerpf(1.0, h, smoothstep(POND["r"], POND["r"] + 8.0, pd))
 	h -= 3.0 * (1.0 - smoothstep(POND["r"] - 1.0, POND["r"] + 2.0, pd))
-	# Rugs sit flat.
+	# The ground is flat under rugs out in the hills.
 	for r in RUGS:
 		var rd := Vector2(x - r["x"], z - r["z"]).length()
 		if rd < r["r"] + 2.0 and Vector2(r["x"], r["z"]).length() > 40.0:
@@ -98,6 +112,39 @@ static func height(x: float, z: float) -> float:
 	var edge := maxf(absf(x) / MAP_HX, absf(z) / MAP_HZ)
 	h += 16.0 * smoothstep(0.82, 1.0, edge)
 	return h
+
+
+## How high a rug's top is, `d` from its middle: flat, then bevelled down at the edge, like
+## sam's model (a rug of radius r is the model scaled by r / RUG_R). -1 off the rug.
+static func rug_top(r: float, d: float) -> float:
+	if d > r:
+		return -1.0
+	var k := r / StageShape.RUG_R
+	var top_r := StageShape.RUG_TOP_R * k
+	if d <= top_r:
+		return StageShape.RUG_H * k
+	return lerpf(StageShape.RUG_H * k, StageShape.RUG_SIDE_H * k, (d - top_r) / (r - top_r))
+
+
+## The height of the stage's top at (x, z) (its floor, stairs or rim), or -1 off the stage.
+static var _stage := PackedFloat32Array()
+static func stage_height(x: float, z: float) -> float:
+	if _stage.is_empty():
+		var raw := Marshalls.base64_to_raw(StageShape.DATA)
+		_stage.resize(StageShape.NX * StageShape.NZ)
+		for i in _stage.size():
+			_stage[i] = raw.decode_u16(i * 2) / 1000.0 * MODEL_SCALE
+	var rug: Dictionary = RUGS[0]
+	var i := roundi(((x - rug["x"]) / MODEL_SCALE - StageShape.X0) / StageShape.CELL)
+	var k := roundi(((z - rug["z"]) / MODEL_SCALE - StageShape.Z0) / StageShape.CELL)
+	if i < 0 or k < 0 or i >= StageShape.NX or k >= StageShape.NZ or _stage[k * StageShape.NX + i] <= 0.0:
+		return -1.0
+	return _stage[k * StageShape.NX + i]
+
+
+## The height of the stage's floor.
+static func deck_y() -> float:
+	return StageShape.DECK_Y * MODEL_SCALE
 
 
 static var _rug_h := {}
@@ -115,7 +162,7 @@ static func _rug_height(r: Dictionary) -> float:
 	return _rug_h[key]
 
 
-## The height a rug is drawn at.
+## The height of the ground a rug sits on.
 static func rug_height(r: Dictionary) -> float:
 	if Vector2(r["x"], r["z"]).length() <= 40.0:
 		return 0.0
@@ -172,8 +219,9 @@ static func _free(x: float, z: float, gap: float) -> bool:
 	return true
 
 
+## Up on the stage's floor (where you can change the beat).
 static func on_stage(x: float, z: float) -> bool:
-	return Vector2(x - STAGE["x"], z - STAGE["z"]).length() <= STAGE["r"]
+	return stage_height(x, z) >= deck_y() - 0.3
 
 
 ## Inside the booth (past the doorway).
@@ -213,14 +261,32 @@ static func resolve(p: Vector2) -> Vector2:
 
 
 ## One step of walking: `input` is a direction on the floor (length 0..1). Slides along
-## obstacles and walls. Returns the new position.
-static func step(p: Vector2, input: Vector2, dt: float) -> Vector2:
+## obstacles and walls, and won't climb anything taller than MAX_CLIMB above your feet
+## (`foot`: how high your feet are; leave it out to stand on the ground). Returns the new position.
+static func step(p: Vector2, input: Vector2, dt: float, foot := NAN) -> Vector2:
 	var len := input.length()
 	if len < 0.01:
 		return p
 	# Small sub-steps, so a slow frame can't carry you through a thin wall.
 	var move := input / len * minf(1.0, len) * WALK_SPEED * dt
 	var n := maxi(1, ceili(move.length() / 0.3))
+	var under := height(p.x, p.y)
+	var flying := not is_nan(foot) and foot > under + 0.05
+	var feet := foot if flying else under
 	for i in n:
-		p = resolve(p + move / n)
+		var d := move / n
+		var q := resolve(p + d)
+		if height(q.x, q.y) > feet + MAX_CLIMB:
+			# Too tall to step up: slide along it if either way along is clear.
+			var along := [resolve(p + Vector2(d.x, 0.0)), resolve(p + Vector2(0.0, d.y))]
+			if absf(d.y) > absf(d.x):
+				along.reverse()
+			q = p
+			for a in along:
+				if height(a.x, a.y) <= feet + MAX_CLIMB:
+					q = a
+					break
+		p = q
+		if not flying:
+			feet = height(p.x, p.y)
 	return p

@@ -114,17 +114,16 @@ func _ready() -> void:
 	net.main = self
 	add_child(net)
 	_build_game_ui()
-	character.position = Vector3(0, 0, 4)
+	_put_character(Vector2(0, 4), 0.0) # at the foot of the stage's stairs
 	# For testing the web build: index.html?spawn=booth starts you at the booth.
 	if OS.has_feature("web") and str(JavaScriptBridge.eval("location.search")).contains("spawn=booth"):
-		character.position = Vector3(World.BOOTH_EXIT.x, 0, World.BOOTH_EXIT.y)
+		_put_character(World.BOOTH_EXIT, 0.0)
 	# ...and index.html?spawn=hilltop (or any rug's name) starts you on that rug.
 	if OS.has_feature("web"):
 		var q := str(JavaScriptBridge.eval("location.search"))
 		for rug in World.RUGS:
 			if q.contains("spawn=" + str(rug["name"]).trim_prefix("~/")):
-				character.position = Vector3(rug["x"], World.rug_height(rug), rug["z"] + 2.0)
-	cam_target = character.position
+				_put_character(Vector2(rug["x"], rug["z"] + 2.0), 0.0)
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
 	resized.connect(_layout)
@@ -593,7 +592,7 @@ func _build_booth_ui() -> void:
 	pool.material_override = pool_mat
 	pool.position.y = 0.03
 	spotlight.add_child(pool)
-	spotlight.position = Vector3(World.REVEAL_SPOT.x, 0, World.REVEAL_SPOT.y)
+	spotlight.position = Vector3(World.REVEAL_SPOT.x, World.height(World.REVEAL_SPOT.x, World.REVEAL_SPOT.y), World.REVEAL_SPOT.y)
 	spotlight.visible = false
 	room.add_child(spotlight)
 
@@ -803,6 +802,7 @@ func _finish_booth() -> void:
 func _put_character(p: Vector2, facing: float) -> void:
 	air = 0.0
 	air_vel = 0.0
+	step_lag = 0.0
 	ground = World.height(p.x, p.y)
 	character.position = Vector3(p.x, ground, p.y)
 	character.rotation.y = facing
@@ -827,8 +827,10 @@ var zoom := 1.0
 var zoom_shown := 1.0
 var poi := 0.0                 # 0..1, how close you are to a rug (a point of interest)
 var poi_centre := Vector3.ZERO
+var poi_lean := 0.35
 const POI_ZOOM := 0.9          # how far the camera comes in at a rug, when you're zoomed out
 const POI_REACH := 3.0         # starts easing in this far from a rug's edge
+const STAGE_POI_R := 8.0       # ...or from this far around the middle of the stage
 var cam_target := Vector3.ZERO
 var room: Node3D
 var beats: Node
@@ -884,9 +886,11 @@ func _stick_input() -> Vector2:
 
 const JUMP_SPEED := 9.0
 const GRAVITY := 28.0
+const FALL_DROP := 0.5  # stepping down further than this is a little fall, not a snap
 var air := 0.0       # height above the ground while jumping
 var air_vel := 0.0
 var ground := 0.0
+var step_lag := 0.0  # eases big steps up (the stage's stairs) instead of popping up
 
 
 func _jump() -> void:
@@ -910,11 +914,17 @@ func _walk(delta: float) -> void:
 	if input.length() < 0.01:
 		character.drive_speed = 0.0
 	else:
-		np = World.step(p, input, delta)
+		np = World.step(p, input, delta, ground + air)
 		character.drive_speed = (np - p).length() / maxf(delta, 1e-3)
 		character.rotation.y = lerp_angle(character.rotation.y, atan2(input.x, input.y), 1.0 - exp(-14.0 * delta))
-	# Stand on the ground, or fly through the air and land with a squash.
+	# Stand on the ground, or fly through the air and land with a squash. Stepping down
+	# off something (a stair, the stage) is a fall; stepping up eases up.
 	var new_ground := World.height(np.x, np.y)
+	if air <= 0.0 and new_ground < ground - FALL_DROP:
+		air = 0.001
+		air_vel = 0.0
+	elif air <= 0.0 and new_ground > ground + 0.25:
+		step_lag -= new_ground - ground
 	if air > 0.0:
 		air += (ground - new_ground) # keep the same height in the world while airborne
 		air_vel -= GRAVITY * delta
@@ -925,8 +935,9 @@ func _walk(delta: float) -> void:
 			air = 0.0
 			air_vel = 0.0
 	ground = new_ground
-	character.position = Vector3(np.x, ground + air, np.y)
-	character.floor_shadow.position.y = 0.006 - air
+	step_lag *= exp(-16.0 * delta)
+	character.position = Vector3(np.x, ground + air + step_lag, np.y)
+	character.floor_shadow.position.y = 0.006 - air - step_lag
 	character.floor_shadow.scale = Vector3.ONE * clampf(1.0 - air * 0.12, 0.45, 1.0)
 
 
@@ -935,14 +946,21 @@ func _update_camera(delta: float) -> void:
 	var here := Vector2(character.position.x, character.position.z)
 	var near_rug := 0.0
 	for rug in World.RUGS:
-		var gap: float = here.distance_to(Vector2(rug["x"], rug["z"])) - rug["r"]
-		var w := 1.0 - smoothstep(0.0, POI_REACH, gap)
+		var centre := Vector2(rug["x"], rug["z"])
+		var r: float = rug["r"]
+		if rug == World.RUGS[0]: # the stage's rug is most of the plaza: ease in on the stage itself
+			centre = Vector2(World.STAGE["x"], World.STAGE["z"])
+			r = STAGE_POI_R
+		var w := 1.0 - smoothstep(0.0, POI_REACH, here.distance_to(centre) - r)
 		if w > near_rug:
 			near_rug = w
-			poi_centre = Vector3(rug["x"], World.rug_height(rug), rug["z"])
+			poi_centre = Vector3(centre.x, 0.0, centre.y)
+			poi_lean = 0.35 * minf(1.0, 6.0 / r) # lean less towards the middle of a big rug
 	poi += (near_rug - poi) * (1.0 - exp(-2.5 * delta))
 	var pull := poi * smoothstep(1.0, 1.3, zoom)
-	var follow := Vector3(character.position.x, ground, character.position.z).lerp(poi_centre, 0.35 * pull)
+	var follow := Vector3(character.position.x, ground, character.position.z)
+	follow.x = lerpf(follow.x, poi_centre.x, poi_lean * pull)
+	follow.z = lerpf(follow.z, poi_centre.z, poi_lean * pull)
 	cam_target = cam_target.lerp(follow, 1.0 - exp(-5.0 * delta))
 	var zoom_goal := lerpf(zoom, minf(zoom, POI_ZOOM), pull)
 	zoom_shown += (zoom_goal - zoom_shown) * (1.0 - exp(-12.0 * delta))

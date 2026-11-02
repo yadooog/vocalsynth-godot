@@ -19,6 +19,8 @@ const WATER := Color("#bfe0f2")
 const ROCK := Color("#d8d4cc")
 const PINE := Color("#8fcfa4")
 const PINE_DARK := Color("#74b98c")
+const STAGE := Color("#e9d2b4")
+const SPEAKER := Color("#2b2b33")
 
 
 var speakers: Array = []   # [box, cone] pairs that bounce on the kick drum
@@ -107,23 +109,30 @@ func _build() -> void:
 	_put(_box(Vector3(World.WIDTH, 0.1, World.DEPTH)), floor_mat, Vector3(0, -0.05, 0))
 	_build_terrain()
 
-	# Rugs: a pastel disc on a slightly bigger ink disc (the ring), with the name on the floor.
+	# Rugs: sam's rug model in each rug's colour, scaled to its size, with its name on top.
+	# The first rug has sam's stage on it, where sam put it in Blender.
+	var models: Node3D = preload("res://models/world_props.glb").instantiate()
+	var rug_mesh: Mesh = models.get_node("rug").mesh
+	var stage_mesh: Mesh = models.get_node("stage").mesh
+	models.free()
 	for rug in World.RUGS:
 		var ry := World.rug_height(rug)
-		if ry > 0.0:
-			ry += 0.08 # clear of the ground's facets
-		_put(_cyl(rug["r"] + 0.06, rug["r"] + 0.06, 0.02, 64), _mat(INK), Vector3(rug["x"], ry + 0.005, rug["z"]))
-		_put(_cyl(rug["r"], rug["r"], 0.02, 64), _mat(rug["color"]), Vector3(rug["x"], ry + 0.012, rug["z"]))
-		if rug["name"] != "~/middle":
-			var label := Label3D.new()
-			label.text = rug["name"]
-			label.modulate = INK
-			label.outline_size = 0
-			label.font_size = 64
-			label.pixel_size = 0.01
-			label.rotation = Vector3(-PI / 2, 0, 0)
-			label.position = Vector3(rug["x"], ry + 0.03, rug["z"] + rug["r"] - 0.9)
-			add_child(label)
+		var k: float = rug["r"] / StageShape.RUG_R
+		var disc := _put(rug_mesh, _mat(rug["color"], true), Vector3(rug["x"], ry, rug["z"]))
+		disc.scale = Vector3.ONE * k
+		if rug == World.RUGS[0]:
+			var stage := _put(stage_mesh, _mat(STAGE, true), Vector3(rug["x"], ry, rug["z"]))
+			stage.scale = Vector3.ONE * k
+		var label := Label3D.new()
+		label.text = rug["name"]
+		label.modulate = INK
+		label.outline_size = 0
+		label.font_size = 64 if rug["r"] < 10.0 else 110
+		label.pixel_size = 0.01
+		label.rotation = Vector3(-PI / 2, 0, 0)
+		label.position = Vector3(rug["x"], ry + StageShape.RUG_H * k + 0.03, rug["z"] + rug["r"] - (0.9 if rug["r"] < 10.0 else 2.0))
+		add_child(label)
+	_build_mic()
 
 	var white := _mat(WHITE)
 	var wood := _mat(WOOD)
@@ -195,20 +204,18 @@ func _build() -> void:
 				for sx in [-1.0, 1.0]:
 					var leg := Vector3(0.2, 0.45, d * 0.8) if along else Vector3(w * 0.8, 0.45, 0.2)
 					_put(_box(leg), wood, Vector3(x + (sx * (w / 2 - 0.3) if along else 0.0), 0.22, z + (0.0 if along else sx * (d / 2 - 0.3))))
-			"stage":
-				_put(_box(Vector3(o["w"], 0.6, o["d"])), _mat(POT), Vector3(x, 0.3, z))
-				_put(_cyl(0.04, 0.04, 1.6, 8), _mat(INK), Vector3(x, 1.4, z + 0.5))
-				_put(_ball(0.14), _mat(Color("#222222"), true, 0.02), Vector3(x, 2.25, z + 0.5))
-				# Two speakers behind the stage.
-				for sx in [-1.0, 1.0]:
-					var spk := _put(_box(Vector3(1.4, 2.2, 1.2)), _mat(Color("#2b2b33")), Vector3(World.STAGE["x"] + sx * 4.2, 1.7, World.STAGE["z"] - 5.5))
-					var cone := MeshInstance3D.new()
-					cone.mesh = _cyl(0.45, 0.45, 0.02, 32)
-					cone.material_override = _mat(Color("#8a8a96"))
-					cone.rotation.x = PI / 2
-					cone.position = Vector3(0, -0.3, 0.61)
-					spk.add_child(cone)
-					speakers.append([spk, cone])
+			"speaker":
+				# Facing the crowd, bouncing on the kick drum.
+				var w: float = o["w"]
+				var hgt := w * 1.55
+				var spk := _put(_box(Vector3(w, hgt, o["d"])), _mat(SPEAKER), Vector3(x, World.height(x, z) + hgt / 2.0, z))
+				var cone := MeshInstance3D.new()
+				cone.mesh = _cyl(w * 0.32, w * 0.32, 0.02, 32)
+				cone.material_override = _mat(Color("#8a8a96"))
+				cone.rotation.x = PI / 2
+				cone.position = Vector3(0, -hgt * 0.14, o["d"] / 2.0 + 0.01)
+				spk.add_child(cone)
+				speakers.append([spk, cone])
 			"booth":
 				_put(_box(Vector3(o["w"], 1.4, o["d"])), _mat(WALL, true, 0.03), Vector3(x, 0.7, z))
 			"crate":
@@ -240,6 +247,14 @@ func _build() -> void:
 	_put(_ball(0.22), booth_light, Vector3(bx + World.BOOTH["w"] / 2.0 - 0.15, 1.65, bz - 1.55))
 
 
+# The mic stand at the front of the stage, where you stand for your reveal.
+func _build_mic() -> void:
+	var y := World.deck_y()
+	_put(_cyl(0.05, 0.05, 1.9, 8), _mat(INK), Vector3(World.MIC.x, y + 0.95, World.MIC.y))
+	_put(_cyl(0.35, 0.4, 0.06, 16), _mat(INK), Vector3(World.MIC.x, y + 0.03, World.MIC.y))
+	_put(_ball(0.16), _mat(Color("#222222"), true, 0.02), Vector3(World.MIC.x, y + 1.95, World.MIC.y))
+
+
 # The hills: one big grid mesh around the plaza, coloured by height.
 func _build_terrain() -> void:
 	var step := 2.0
@@ -253,7 +268,7 @@ func _build_terrain() -> void:
 		for i in nx:
 			var x := -World.MAP_HX + i * step
 			var z := -World.MAP_HZ + j * step
-			var h := World.height(x, z)
+			var h := World.ground(x, z)
 			# Tuck the ground under the plaza's floor.
 			if absf(x) < World.WIDTH / 2.0 + 0.5 and absf(z) < World.DEPTH / 2.0 + 0.5:
 				h = minf(h, -0.12)
@@ -297,7 +312,7 @@ func _build_flowers() -> void:
 	mm.use_colors = true
 	mm.mesh = _ball(0.18)
 	mm.instance_count = 240
-	var meadow: Dictionary = World.RUGS[8]
+	var meadow: Dictionary = World.RUGS.filter(func(r): return r["name"] == "~/meadow")[0]
 	for k in mm.instance_count:
 		var a := rng.randf() * TAU
 		var d := lerpf(meadow["r"] + 1.0, 26.0, sqrt(rng.randf()))

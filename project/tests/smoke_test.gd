@@ -92,9 +92,28 @@ func _initialize() -> void:
 		print("info: audio thread advanced the synth by %.3f s" % (main.synth.get_time() - t0))
 		print("info: character walked to x=%.2f, head width %.2f height %.2f" % [character.position.x, character.head_sx, character.head_sy])
 		print("ok: character runs")
-		# The hills: plaza flat, hilltop raised, obstacles generated, jumping lands.
-		if absf(World.height(0, 4)) > 0.01 or World.height(0, -64) < 8.0 or World.obstacles().size() < 50:
-			printerr("FAIL: world heights %.2f %.2f, %d obstacles" % [World.height(0, 4), World.height(0, -64), World.obstacles().size()])
+		# The hills: plaza flat, hilltop raised, obstacles generated.
+		if absf(World.height(-26, -18)) > 0.01 or World.height(0, -64) < 8.0 or World.obstacles().size() < 50:
+			printerr("FAIL: world heights %.2f %.2f, %d obstacles" % [World.height(-26, -18), World.height(0, -64), World.obstacles().size()])
+			ok = false
+		# sam's rug and stage: the big rug is raised, the stage's floor is high up.
+		if absf(World.height(0, 12) - 1.09) > 0.05 or absf(World.height(0, -9) - World.deck_y()) > 0.05:
+			printerr("FAIL: rug %.2f, stage floor %.2f (want %.2f)" % [World.height(0, 12), World.height(0, -9), World.deck_y()])
+			ok = false
+		# Up the stairs onto the stage...
+		var walker := Vector2(0, 6)
+		for i in 60:
+			walker = World.step(walker, Vector2(0, -1), 1.0 / 30.0)
+		if not World.on_stage(walker.x, walker.y):
+			printerr("FAIL: couldn't walk up the stage's stairs (stuck at %s, height %.2f)" % [walker, World.height(walker.x, walker.y)])
+			ok = false
+		# ...but not up its back wall.
+		walker = Vector2(0, -18.8)
+		for i in 60:
+			walker = World.step(walker, Vector2(0, 1), 1.0 / 30.0)
+		if World.height(walker.x, walker.y) > 2.0:
+			printerr("FAIL: walked up the back of the stage (to %s)" % walker)
+			ok = false
 		print("ok: world")
 		# The booth: walk in, make a phrase, finish, and it joins the song.
 		if not World.in_booth(World.BOOTH["x"], World.BOOTH["z"]) or World.in_booth(0.0, 0.0):

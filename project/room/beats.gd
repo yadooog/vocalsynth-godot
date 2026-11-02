@@ -12,8 +12,8 @@ const LOOP_SECONDS := 4.0
 const STEPS := 16
 const STEP_SECONDS := LOOP_SECONDS / STEPS   # 0.25 s: an eighth note
 const DRUMS := ["kick", "snare", "hat", "clap"]
-const HEARING_FULL := 8.0                    # world units from the stage
-const HEARING_SILENT := 34.0
+const HEARING_FULL := 16.0                   # world units from the middle of the stage
+const HEARING_SILENT := 50.0
 
 var pattern: Array = []          # [drum][step] -> bool
 var clock := 0.0                 # the beat clock, in seconds (follows real time, not frames)

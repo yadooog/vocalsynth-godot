@@ -71,13 +71,14 @@ A quick automatic test runs first, and if it fails the GitHub **Actions** tab sh
 | `project/character/` | The character: `character.gd` (body, head shape, neck physics, googly eyes, tongue) and its two shaders. |
 | `project/` | The Godot project. `main.tscn`/`main.gd` lay out the screen and connect everything; `voicebox.gd` is the tract, `xy_pad.gd` the pads and slider, `timeline.gd` the phrase editor. |
 | `project/room/` | The hub room (`world.gd` layout and walking, `room.gd` builds it), the drums (`beats.gd`) and the beat grid. |
+| `project/models/` | sam's Blender models. `world_props.glb` (the big rug and the stage) and `room/stage_shape.gd` (where you can stand on them) are made by `tools/import_models.py` from sam's export: run `python3 tools/import_models.py sams_file.glb` after changing them in Blender. |
 | `project/song/` | The shared song: each section from the booth plays on its own voice with a singer. |
 | `project/net/` | Online play: `net.gd` talks to the website's server (`server/godot.js` and `server/godot_game.js` in the vocalcordgame repo); `game_card.gd` shows the round. |
 | `project/theme.tres` | The paper look, made by `tools/make_theme.py` (edit that, then run it). |
 | `project/bin/` | The compiled engine for Mac, Windows, Linux and web (made by GitHub, don't edit). |
 | `src/synth/` | The voice engine in plain C++ (no Godot code), ported file by file from pink-trombone-mod. |
 | `src/pink_trombone.cpp` | Makes the engine usable from GDScript as the `PinkTrombone` class. |
-| `tools/` | Checks the C++ port against the original JavaScript. |
+| `tools/` | Checks the C++ port against the original JavaScript, makes the theme, and brings in sam's models. |
 
 ## For programmers
 
