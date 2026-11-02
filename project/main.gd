@@ -701,6 +701,10 @@ const FOV_FAR := 26.0
 var stick = null               # [origin, current] while dragging in the room
 var zoom := 1.0
 var zoom_shown := 1.0
+var poi := 0.0                 # 0..1, how close you are to a rug (a point of interest)
+var poi_centre := Vector3.ZERO
+const POI_ZOOM := 0.9          # how far the camera comes in at a rug, when you're zoomed out
+const POI_REACH := 3.0         # starts easing in this far from a rug's edge
 var cam_target := Vector3.ZERO
 var room: Node3D
 var beats: Node
@@ -765,8 +769,21 @@ func _walk(delta: float) -> void:
 
 
 func _update_camera(delta: float) -> void:
-	cam_target = cam_target.lerp(Vector3(character.position.x, 0, character.position.z), 1.0 - exp(-5.0 * delta))
-	zoom_shown += (zoom - zoom_shown) * (1.0 - exp(-12.0 * delta))
+	# Overworld feel: zoomed out, the camera eases in on the rugs, and leans towards their middle.
+	var here := Vector2(character.position.x, character.position.z)
+	var near_rug := 0.0
+	for rug in World.RUGS:
+		var gap: float = here.distance_to(Vector2(rug["x"], rug["z"])) - rug["r"]
+		var w := 1.0 - smoothstep(0.0, POI_REACH, gap)
+		if w > near_rug:
+			near_rug = w
+			poi_centre = Vector3(rug["x"], 0, rug["z"])
+	poi += (near_rug - poi) * (1.0 - exp(-2.5 * delta))
+	var pull := poi * smoothstep(1.0, 1.3, zoom)
+	var follow := Vector3(character.position.x, 0, character.position.z).lerp(poi_centre, 0.35 * pull)
+	cam_target = cam_target.lerp(follow, 1.0 - exp(-5.0 * delta))
+	var zoom_goal := lerpf(zoom, minf(zoom, POI_ZOOM), pull)
+	zoom_shown += (zoom_goal - zoom_shown) * (1.0 - exp(-12.0 * delta))
 	var z := zoom_shown
 	if z < 1.0:
 		camera.fov = lerpf(FOV_CLOSE, FOV_DEFAULT, smoothstep(ZOOM_MIN, 1.0, z))
