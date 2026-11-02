@@ -71,26 +71,27 @@ func _rebuild() -> void:
 	head.add_child(status)
 	_clock = _label("", &"DimLabel")
 	head.add_child(_clock)
-	head.add_child(_button("end", net.stop_game))
+	head.add_child(_button("end", net.stop_game, &"", "end"))
 	_box.add_child(head)
 
 	if phase == "brief":
 		if g.get("setter") == net.you:
 			var row := _row()
 			_brief_edit = LineEdit.new()
+			_brief_edit.name = "brief"
 			_brief_edit.placeholder_text = "a word, a theme or a genre"
 			_brief_edit.max_length = 40
 			_brief_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			_brief_edit.text = typed
 			_brief_edit.text_submitted.connect(_send_brief)
 			row.add_child(_brief_edit)
-			row.add_child(_button("go", func(): _send_brief(_brief_edit.text), &"BigButton"))
+			row.add_child(_button("go", func(): _send_brief(_brief_edit.text), &"BigButton", "brief_go"))
 			_box.add_child(row)
 			var ideas := HFlowContainer.new()
 			ideas.add_theme_constant_override("h_separation", 6)
 			ideas.add_theme_constant_override("v_separation", 6)
 			for idea in g.get("suggestions", []):
-				ideas.add_child(_button(str(idea), _send_brief.bind(str(idea))))
+				ideas.add_child(_button(str(idea), _send_brief.bind(str(idea)), &"", "idea%d" % ideas.get_child_count()))
 			_box.add_child(ideas)
 			if fresh or typing:
 				_focus_brief.call_deferred()
@@ -103,7 +104,7 @@ func _rebuild() -> void:
 
 	if phase == "build":
 		if net.my_turn():
-			_booth_go = _button("go to the booth", main.go_to_booth, &"BigButton")
+			_booth_go = _button("go to the booth", main.go_to_booth, &"BigButton", "booth_go")
 			_booth_go.visible = main.booth_state == "room"
 			_box.add_child(_booth_go)
 		var queue: Array = g.get("queue", [])
@@ -123,13 +124,13 @@ func _rebuild() -> void:
 			var who := _label(_section_name(s))
 			who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(who)
-			var listen := _button("listen")
+			var listen := _button("listen", null, &"", "listen%d" % i)
 			listen.toggle_mode = true
 			listen.button_group = listening
 			listen.button_pressed = main.listen == i
 			listen.toggled.connect(func(on): _listen(i, on))
 			row.add_child(listen)
-			var vote := _button("vote")
+			var vote := _button("vote", null, &"", "vote%d" % i)
 			vote.toggle_mode = true
 			vote.button_group = votes
 			vote.button_pressed = _my_vote == i
@@ -229,12 +230,30 @@ func _label(text: String, variation := &"") -> Label:
 	return l
 
 
-func _button(text: String, on_press = null, variation := &"") -> Button:
+func _button(text: String, on_press = null, variation := &"", id := "") -> Button:
 	var b := Button.new()
 	b.text = text
+	if id != "":
+		b.name = id
 	b.focus_mode = Control.FOCUS_NONE
 	if variation != &"":
 		b.theme_type_variation = variation
 	if on_press is Callable:
 		b.pressed.connect(on_press)
 	return b
+
+
+## For browser tests: the middle of each named button and box, to click on.
+func test_points() -> Dictionary:
+	var out := {}
+	if visible:
+		_collect(self, out)
+	return out
+
+
+func _collect(n: Node, out: Dictionary) -> void:
+	for c in n.get_children():
+		if (c is Button or c is LineEdit) and c.is_visible_in_tree() and not str(c.name).begins_with("@"):
+			var r: Rect2 = c.get_global_rect()
+			out[str(c.name)] = [roundi(r.get_center().x), roundi(r.get_center().y)]
+		_collect(c, out)

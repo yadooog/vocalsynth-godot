@@ -66,6 +66,11 @@ func _write_debug() -> void:
 		"live": main.song.sections.map(func(x): return x["live"]),
 		"remote_reveal": main.remote_reveal, "loop": main.beats.loop_index(),
 		"clock": snappedf(main.beats.clock, 0.01), "pos": [snappedf(main.character.position.x, 0.1), snappedf(main.character.position.z, 0.1)]}
+	var ui: Dictionary = main.game_card.test_points() if main.game_card else {}
+	if main.round_button and main.round_button.is_visible_in_tree():
+		var r: Rect2 = main.round_button.get_global_rect()
+		ui["round"] = [roundi(r.get_center().x), roundi(r.get_center().y)]
+	d["ui"] = ui
 	JavaScriptBridge.eval("window.__game = " + JSON.stringify(d) + ";")
 
 
