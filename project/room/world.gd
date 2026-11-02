@@ -8,7 +8,7 @@ const MAP_HX := 110.0            # the whole map: hills all round the plaza, to 
 const MAP_HZ := 90.0
 const WALK_SPEED := 8.0          # units per second
 const PLAYER_RADIUS := 0.8       # keeps characters off the walls
-const MAX_CLIMB := 1.2           # the highest step you can walk up (the stage's first stair is 1.1)
+const MAX_CLIMB := 0.8           # the highest step you can walk up (the stage's stairs are up to 0.6)
 # sam's Blender models are drawn at twice the game's size: sam's character reference box is
 # 7 m tall and the character is 3.5 m. StageShape (made by tools/import_models.py) holds
 # their measurements in sam's units.

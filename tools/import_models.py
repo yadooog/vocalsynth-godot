@@ -90,6 +90,33 @@ def take(j, bin_, name):
     return pos, nor, uv, tris
 
 
+def flat(pos, _nor, uv, tris):
+    """Facets: every triangle gets its own corners and its face's normal, for crisp cel shading.
+    A mesh that's inside out (sam's rugs are: their normals point in) is turned the right way."""
+    def face(t):
+        A, B, C = (pos[i] for i in t)
+        u = [B[i] - A[i] for i in range(3)]
+        v = [C[i] - A[i] for i in range(3)]
+        n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+        length = math.sqrt(sum(c * c for c in n)) or 1.0
+        return [c / length for c in n]
+    # The top's normals should point up.
+    top = max(v[1] for v in pos)
+    up = sum(face(t)[1] for t in tris if min(pos[i][1] for i in t) > top - 1e-3)
+    if up < 0:
+        tris = [(a, c, b) for a, b, c in tris]
+    out_p, out_n, out_uv, out_t = [], [], [], []
+    for t in tris:
+        n = tuple(face(t))
+        for i in t:
+            out_p.append(pos[i])
+            out_n.append(n)
+            out_uv.append(uv[i])
+        k = len(out_p)
+        out_t.append((k - 3, k - 2, k - 1))
+    return out_p, out_n, out_uv, out_t
+
+
 def write_glb(path, meshes):
     """meshes: [(name, pos, nor, uv, tris)] -> a .glb with one node per mesh, no materials."""
     blob = bytearray()
@@ -165,6 +192,7 @@ def main():
     stage = take(j, bin_, 'stage')
     if rug is None or stage is None:
         sys.exit('need a "rug large" and a "stage" in the file')
+    rug, stage = flat(*rug), flat(*stage)
     # The rug's shape: outer radius and side height, top radius and height.
     prof = [(math.hypot(v[0], v[2]), v[1]) for v in rug[0]]
     rug_r = max(r for r, _ in prof)
