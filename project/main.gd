@@ -110,6 +110,9 @@ func _ready() -> void:
 	add_child(song)
 	_build_booth_ui()
 	_setup_say_and_board()
+	net = preload("res://net/net.gd").new()
+	net.main = self
+	add_child(net)
 	character.position = Vector3(0, 0, 4)
 	# For testing the web build: index.html?spawn=booth starts you at the booth.
 	if OS.has_feature("web") and str(JavaScriptBridge.eval("location.search")).contains("spawn=booth"):
@@ -517,6 +520,8 @@ func _load_board() -> void:
 # song, and a singer for it appears on the stage.
 
 const BOOTH_SECONDS := 60.0
+var net: Node                 # online play (net/net.gd)
+var _busy_left := 0.0         # showing "someone's in the booth"
 var song: Node
 var song_volume := 0.0
 var booth_state := "room"     # room, booth, reveal_wait, reveal
@@ -590,12 +595,23 @@ func _update_booth(delta: float) -> void:
 	if song == null:
 		return
 	song_label.text = "song %d/%d" % [song.sections.size(), song.MAX_SECTIONS]
+	%Online.text = "%d online" % net.count() if net and net.is_online() else "offline"
 	var inside := World.in_booth(character.position.x, character.position.z)
 	match booth_state:
 		"room":
-			if inside:
+			_busy_left -= delta
+			if inside and net.booth_taken():
+				# Someone else is in there: step back out.
+				_put_character(World.BOOTH_EXIT, PI / 2)
+				booth_title.text = "%s is in the booth" % net.booth_owner_name()
+				booth_timer.text = ""
+				booth_button.visible = false
+				booth_bar.visible = true
+				_place_booth_bar()
+				_busy_left = 2.5
+			elif inside:
 				_enter_booth()
-			else:
+			elif _busy_left <= 0.0:
 				booth_bar.visible = false
 		"booth":
 			if song.is_full():
@@ -603,6 +619,7 @@ func _update_booth(delta: float) -> void:
 					booth_state = "room"
 					zoom = _zoom_before
 					room.set_booth_busy(false)
+					net.leave_booth()
 				return
 			booth_left -= delta
 			var secs := int(ceil(maxf(booth_left, 0.0)))
@@ -623,6 +640,7 @@ func _update_booth(delta: float) -> void:
 
 
 func _enter_booth() -> void:
+	net.enter_booth()
 	booth_state = "booth"
 	booth_bar.visible = true
 	booth_button.visible = true
@@ -649,6 +667,7 @@ func _on_booth_button() -> void:
 		return
 	if song.is_full():
 		song.clear()
+		net.clear_song()
 		_enter_booth()
 	else:
 		_finish_booth()
@@ -656,6 +675,7 @@ func _on_booth_button() -> void:
 
 func _finish_booth() -> void:
 	room.set_booth_busy(false)
+	net.leave_booth()
 	zoom = _zoom_before
 	%LoopBeat.button_pressed = false
 	timeline.stop()
@@ -667,6 +687,8 @@ func _finish_booth() -> void:
 		_put_character(World.BOOTH_EXIT, PI / 2)
 		return
 	reveal_index = song.add_section(keys)
+	if reveal_index >= 0:
+		net.add_section(keys)
 	timeline.clear()
 	if reveal_index < 0:
 		booth_state = "room"

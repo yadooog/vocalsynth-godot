@@ -5,6 +5,7 @@ extends Node
 ## phrases on the downbeat.
 
 signal stepped(step: int, hits: Array)
+signal edited(drum: int, step: int)   # someone here changed the pattern (-1, -1: cleared)
 
 const BPM := 120.0
 const LOOP_SECONDS := 4.0
@@ -51,12 +52,21 @@ static func default_pattern() -> Array:
 
 func toggle(drum: int, step: int) -> void:
 	pattern[drum][step] = not pattern[drum][step]
+	edited.emit(drum, step)
 
 
 func clear() -> void:
 	for row in pattern:
 		for i in STEPS:
 			row[i] = false
+	edited.emit(-1, -1)
+
+
+## Online: follow the room's shared clock, so everyone's drums and songs line up.
+func sync(server_clock: float) -> void:
+	if absf(server_clock - clock) > 0.03:
+		clock = server_clock
+		_next_step = int(ceil(clock / STEP_SECONDS))
 
 
 func current_step() -> int:
