@@ -203,12 +203,21 @@ func _initialize() -> void:
 		if main.booth_state != "booth":
 			printerr("FAIL: the booth did not let you in on your turn (%s)" % main.booth_state)
 			ok = false
+		main._update_booth(0.1)
+		if main.booth_left > 31.0:
+			printerr("FAIL: the booth's timer doesn't follow the turn (%.1f s left)" % main.booth_left)
+			ok = false
 		main._finish_booth() # nothing made: just step out
 		var keys := [{"t": 0.0, "ease": "smooth", "f": main.capture_frame(true)}]
 		main.replace_song([{"i": 0, "owner": "p1", "name": "warble", "keys": keys}])
 		net.game = {"phase": "vote", "round": 1, "brief": "jazz", "ends": main.beats.clock + 30.0, "voted": [],
-			"sections": [{"i": 0, "owner": "p1", "name": "warble", "stays": 0}], "scores": scores}
+			"sections": [{"i": 0, "owner": "p1", "name": "warble", "stays": 0},
+				{"i": 1, "owner": "p1", "name": "warble", "stays": 1, "kept": true}], "scores": scores}
 		net.game_changed.emit()
+		var points: Dictionary = main.game_card.test_points()
+		if not points.has("vote0") or points.has("vote1"):
+			printerr("FAIL: the vote should be on new loops only (%s)" % points.keys())
+			ok = false
 		if main.song.sections.size() != 1 or not main.song.sections[0]["live"]:
 			printerr("FAIL: the room's song did not replace ours")
 			ok = false

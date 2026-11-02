@@ -525,7 +525,7 @@ func _load_board() -> void:
 # walk out) and you're put on the stage: your section plays once on its own, then joins the
 # song, and a singer for it appears on the stage.
 
-const BOOTH_SECONDS := 60.0
+const BOOTH_SECONDS := 120.0
 var net: Node                 # online play (net/net.gd)
 var _busy_left := 0.0         # showing "someone's in the booth"
 var song: Node
@@ -635,7 +635,14 @@ func _update_booth(delta: float) -> void:
 					room.set_booth_busy(false)
 					net.leave_booth()
 				return
+			if net.in_game() and not net.my_turn():
+				# A round started (or your turn ran out) while you were in here: out you go.
+				timeline.clear()
+				_finish_booth()
+				return
 			booth_left -= delta
+			if net.in_game() and net.my_turn():
+				booth_left = net.time_left() # in a round, your turn's clock is the booth's
 			var secs := int(ceil(maxf(booth_left, 0.0)))
 			booth_timer.text = "%d:%02d" % [floori(secs / 60.0), secs % 60]
 			if booth_left <= 0.0 or not inside:
@@ -767,13 +774,13 @@ func _on_booth_button() -> void:
 
 func _finish_booth() -> void:
 	room.set_booth_busy(false)
-	net.leave_booth()
 	zoom = _zoom_before
 	%LoopBeat.button_pressed = false
 	timeline.stop()
 	var keys: Array = timeline.keys.duplicate(true)
 	if keys.is_empty() or not keys.any(func(k): return k["f"]["voiced"]):
 		# Nothing to add: just step out.
+		net.leave_booth()
 		booth_state = "room"
 		booth_bar.visible = false
 		_put_character(World.BOOTH_EXIT, PI / 2)
@@ -781,6 +788,7 @@ func _finish_booth() -> void:
 	reveal_index = song.add_section(keys, net.you, net.my_name)
 	if reveal_index >= 0:
 		net.add_section(keys)
+	net.leave_booth() # after the section, so a round still counts it as your turn's
 	timeline.clear()
 	if reveal_index < 0:
 		booth_state = "room"
@@ -1049,7 +1057,7 @@ your boards: the ‹ › arrows switch between sounds and phrases. on sounds, + 
 
 the booth: walk into the booth next to the stage to make your section of the song. the song plays in your headphones and your phrase loops on the beat. press done and you're revealed on the stage: your section plays on its own, then joins the song.
 
-online: everyone here shares the booth, the song and the beat. play a round starts a game: one player picks the brief (a word, a theme or a genre), then everyone takes a turn in the booth to add a loop. then you vote for your favourite loop (not your own). each vote is a point, and the top loop stays on into the next round for 2 more points.
+online: everyone here shares the booth, the song and the beat. play a round starts a game that keeps going round after round: one player picks the brief (a word, a theme or a genre), then everyone takes a 2 minute turn in the booth to add a loop. then you vote for your favourite new loop (not your own). each vote is a point. the top new loop stays on in the song, so the song builds up round by round, and every loop of yours still on scores 2 more points each round. the newest 3 loops stay on.
 
 the beat: the drums play on the stage at 120 bpm. a phrase is 4 seconds = 2 bars, so loop on beat repeats yours in time with the drums. stand on the stage to change the beat.
 

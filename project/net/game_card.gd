@@ -73,6 +73,10 @@ func _rebuild() -> void:
 	head.add_child(_clock)
 	head.add_child(_button("end", net.stop_game, &"", "end"))
 	_box.add_child(head)
+	var hint := _label(_hint(g, phase))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size.x = WIDTH - 24.0
+	_box.add_child(hint)
 
 	if phase == "brief":
 		if g.get("setter") == net.you:
@@ -121,6 +125,8 @@ func _rebuild() -> void:
 		listening.allow_unpress = true
 		var votes := ButtonGroup.new()
 		for s in g.get("sections", []):
+			if s.get("kept", false):
+				continue # loops that stayed on from before aren't up for the vote
 			var i := int(s["i"])
 			var row := _row()
 			var who := _label(_section_name(s))
@@ -146,17 +152,26 @@ func _rebuild() -> void:
 	if phase == "results":
 		var tally: Array = g.get("tally", [])
 		var winner := int(g.get("winner", -1))
+		var still := PackedStringArray()
 		for s in g.get("sections", []):
 			var i := int(s["i"])
+			if s.get("kept", false) and i != winner:
+				still.append(_section_name(s))
+				continue
 			var row := _row()
-			var who := _label(_section_name(s, false), &"BoldLabel" if i == winner else &"Label")
+			var who := _label(_section_name(s), &"BoldLabel" if i == winner else &"Label")
 			who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(who)
 			var n: int = int(tally[i]) if i < tally.size() else 0
 			row.add_child(_label("%d vote%s" % [n, "" if n == 1 else "s"], &"DimLabel"))
 			if i == winner:
-				row.add_child(_label("stays on +%d" % int(g.get("stayBonus", 2)), &"BoldLabel"))
+				row.add_child(_label("stays on", &"BoldLabel"))
 			_box.add_child(row)
+		if not still.is_empty():
+			var on := _label("still on, +%d each: %s" % [int(g.get("stayBonus", 2)), ", ".join(still)], &"DimLabel")
+			on.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			on.custom_minimum_size.x = WIDTH - 24.0
+			_box.add_child(on)
 
 	var scores: Array = g.get("scores", []).duplicate()
 	scores.sort_custom(func(a, b): return float(a["points"]) > float(b["points"]))
@@ -187,10 +202,34 @@ func _status(g: Dictionary, phase: String) -> String:
 	return ""
 
 
-## Whose loop it is, and (in the vote) whether it stayed on from last round.
-func _section_name(s: Dictionary, mark_stays := true) -> String:
-	var who := "you" if s["owner"] == net.you else str(s["name"])
-	return who + (" · stayed on" if mark_stays and int(s.get("stays", 0)) > 0 else "")
+## Whose loop it is.
+func _section_name(s: Dictionary) -> String:
+	return "you" if s["owner"] == net.you else str(s["name"])
+
+
+## What to do now, in a line.
+func _hint(g: Dictionary, phase: String) -> String:
+	match phase:
+		"brief":
+			if g.get("setter") == net.you:
+				return "pick what this round's song is about: type it or tap an idea"
+			return "waiting for the brief"
+		"build":
+			if net.my_turn():
+				return "go to the booth and make a loop that fits the brief. it joins the song when you come out"
+			var queue: Array = g.get("queue", [])
+			var who := net.name_of(g.get("turn"), str(g.get("turnName", "someone")))
+			if not queue.is_empty() and queue[0] == net.you:
+				return "%s is in the booth. you're next" % who
+			return "%s is making a loop in the booth" % who
+		"vote":
+			for s in g.get("sections", []):
+				if not s.get("kept", false) and s["owner"] != net.you:
+					return "listen to this round's loops and vote for your favourite"
+			return "the others are voting"
+		"results":
+			return "the top loop stays on in the song, and the song carries on next round"
+	return ""
 
 
 func _focus_brief() -> void:
