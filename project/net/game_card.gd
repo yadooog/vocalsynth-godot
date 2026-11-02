@@ -93,7 +93,7 @@ func _rebuild() -> void:
 				ideas.add_child(_button(str(idea), _send_brief.bind(str(idea))))
 			_box.add_child(ideas)
 			if fresh or typing:
-				_brief_edit.grab_focus.call_deferred()
+				_focus_brief.call_deferred()
 	else:
 		var brief := _label("“%s”" % str(g.get("brief", "")), &"BoldLabel")
 		brief.add_theme_font_size_override("font_size", 18)
@@ -187,6 +187,11 @@ func _status(g: Dictionary, phase: String) -> String:
 func _section_name(s: Dictionary) -> String:
 	var who := "you" if s["owner"] == net.you else str(s["name"])
 	return who + (" · stayed on" if int(s.get("stays", 0)) > 0 else "")
+
+
+func _focus_brief() -> void:
+	if is_instance_valid(_brief_edit) and _brief_edit.is_inside_tree():
+		_brief_edit.grab_focus()
 
 
 func _send_brief(text: String) -> void:
