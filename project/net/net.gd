@@ -50,6 +50,10 @@ func _ready() -> void:
 	main.beats.edited.connect(_on_beat_edited)
 
 
+static func _now() -> float:
+	return Time.get_ticks_usec() / 1000000.0
+
+
 func is_online() -> bool:
 	return connected
 
@@ -71,7 +75,7 @@ func _process(delta: float) -> void:
 		_ping_left -= delta
 		if _ping_left <= 0.0:
 			_ping_left = PING_EVERY
-			_send({"t": "ping", "c": Time.get_ticks_msec() / 1000.0})
+			_send({"t": "ping", "c": _now()})
 	elif state == WebSocketPeer.STATE_CLOSED:
 		if connected:
 			connected = false
@@ -87,8 +91,6 @@ func _process(delta: float) -> void:
 			_retry_wait = minf(_retry_wait * 2.0, 60.0)
 			ws = WebSocketPeer.new()
 			ws.connect_to_url(url())
-	if _have_clock:
-		main.beats.sync(Time.get_ticks_msec() / 1000.0 + _offset, delta)
 	_update_others(delta)
 
 
@@ -128,7 +130,8 @@ func _on_message(m: Dictionary) -> void:
 			booth_owner = m["booth"]
 			main.room.set_booth_busy(booth_owner != null)
 			main.beats.pattern = m["pattern"]
-			_offset = float(m["clock"]) - Time.get_ticks_msec() / 1000.0
+			_offset = float(m["clock"]) - _now()
+			main.beats.sync_offset(_offset, true)
 			_have_clock = true
 			_best_rtt = 1e9
 			_ping_left = 0.0 # measure the round trip straight away
@@ -152,7 +155,6 @@ func _on_message(m: Dictionary) -> void:
 			booth_owner = m["id"]
 			main.room.set_booth_busy(booth_owner != null)
 		"section":
-			print("debug: section from ", m["owner"], " me ", you)
 			if m["owner"] != you:
 				_add_section(m, false)
 		"song-clear":
@@ -163,12 +165,13 @@ func _on_message(m: Dictionary) -> void:
 		"pong":
 			# Half the round trip has passed since the server read its clock. Trust the
 			# quickest round trips most (slow ones were held up somewhere).
-			var now := Time.get_ticks_msec() / 1000.0
+			var now := _now()
 			var rtt := now - float(m["c"])
 			_best_rtt += 0.02
 			if rtt <= _best_rtt:
 				_best_rtt = rtt
 				_offset = float(m["clock"]) + rtt * 0.5 - now
+				main.beats.sync_offset(_offset)
 
 
 func _add_section(s: Dictionary, quiet: bool) -> void:

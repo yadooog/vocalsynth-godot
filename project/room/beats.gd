@@ -16,7 +16,9 @@ const HEARING_FULL := 8.0                    # world units from the stage
 const HEARING_SILENT := 34.0
 
 var pattern: Array = []          # [drum][step] -> bool
-var clock := 0.0                 # seconds since the machine started
+var clock := 0.0                 # the beat clock, in seconds (follows real time, not frames)
+var offset := 0.0                # clock = real time + offset
+var _target_offset := 0.0        # online: where the room's clock says offset should be
 var _next_step := 0
 var _sounds: Array = []          # one AudioStreamWAV per drum
 var _player: AudioStreamPlayer
@@ -26,6 +28,8 @@ var _rng := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	offset = -_now()
+	_target_offset = offset
 	pattern = default_pattern()
 	_rate = AudioServer.get_mix_rate()
 	_sounds = [_kick(), _snare(), _hat(), _clap()]
@@ -62,16 +66,18 @@ func clear() -> void:
 	edited.emit(-1, -1)
 
 
-## Online: follow the room's shared clock, so everyone's drums and songs line up. Small
-## differences are eased out (time never runs backwards); a big one jumps straight there.
-func sync(server_clock: float, delta: float) -> void:
-	var err := server_clock - clock
-	if absf(err) > 0.5:
-		print("debug: clock jump ", err)
-		clock = server_clock
+static func _now() -> float:
+	return Time.get_ticks_usec() / 1000000.0
+
+
+## Online: follow the room's shared clock (room clock minus our real time), so everyone's
+## drums and songs line up. Small corrections are eased in; `snap` jumps straight there.
+func sync_offset(room_offset: float, snap := false) -> void:
+	_target_offset = room_offset
+	if snap:
+		offset = room_offset
+		clock = _now() + offset
 		_next_step = int(ceil(clock / STEP_SECONDS))
-	else:
-		clock += clampf(err * 0.1, -0.5 * delta, 0.5 * delta)
 
 
 func current_step() -> int:
@@ -94,7 +100,13 @@ static func volume_at(distance: float) -> float:
 
 
 func _process(delta: float) -> void:
-	clock += delta
+	# Ease towards the room's clock, never fast enough to run time backwards.
+	var d := _target_offset - offset
+	if absf(d) > 0.5:
+		sync_offset(_target_offset, true)
+	else:
+		offset += clampf(d, -0.25 * delta, 0.25 * delta)
+	clock = _now() + offset
 	# Play every step whose time has come (skip any we're very late for).
 	while _next_step * STEP_SECONDS <= clock:
 		var late := clock - _next_step * STEP_SECONDS
