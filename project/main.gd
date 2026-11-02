@@ -595,7 +595,7 @@ func _update_booth(delta: float) -> void:
 	if song == null:
 		return
 	song_label.text = "song %d/%d" % [song.sections.size(), song.MAX_SECTIONS]
-	%Online.text = "%d online" % net.count() if net and net.is_online() else "offline"
+	%TopBar.get_node("Row/Online").text = "%d online" % net.count() if net and net.is_online() else "offline"
 	var inside := World.in_booth(character.position.x, character.position.z)
 	match booth_state:
 		"room":
