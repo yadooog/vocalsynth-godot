@@ -21,6 +21,7 @@ var _ping_left := 0.0
 var _last_sent := {}
 var _was_voiced := false
 var _offset := 0.0             # server clock minus our clock
+var _best_rtt := 1e9           # the quickest ping lately: its clock reading is the most exact
 var _have_clock := false
 var _tried := false
 var _retry_left := 0.0
@@ -87,7 +88,7 @@ func _process(delta: float) -> void:
 			ws = WebSocketPeer.new()
 			ws.connect_to_url(url())
 	if _have_clock:
-		main.beats.sync(Time.get_ticks_msec() / 1000.0 + _offset)
+		main.beats.sync(Time.get_ticks_msec() / 1000.0 + _offset, delta)
 	_update_others(delta)
 
 
@@ -129,6 +130,8 @@ func _on_message(m: Dictionary) -> void:
 			main.beats.pattern = m["pattern"]
 			_offset = float(m["clock"]) - Time.get_ticks_msec() / 1000.0
 			_have_clock = true
+			_best_rtt = 1e9
+			_ping_left = 0.0 # measure the round trip straight away
 		"joined":
 			if others.has(m["p"]["id"]):
 				others[m["p"]["id"]]["name"] = m["p"]["name"]
@@ -157,10 +160,14 @@ func _on_message(m: Dictionary) -> void:
 		"beat":
 			main.beats.pattern = m["pattern"]
 		"pong":
-			# Half the round trip has passed since the server read its clock.
+			# Half the round trip has passed since the server read its clock. Trust the
+			# quickest round trips most (slow ones were held up somewhere).
 			var now := Time.get_ticks_msec() / 1000.0
 			var rtt := now - float(m["c"])
-			_offset = float(m["clock"]) + rtt * 0.5 - now
+			_best_rtt += 0.02
+			if rtt <= _best_rtt:
+				_best_rtt = rtt
+				_offset = float(m["clock"]) + rtt * 0.5 - now
 
 
 func _add_section(s: Dictionary, quiet: bool) -> void:

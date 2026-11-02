@@ -62,11 +62,15 @@ func clear() -> void:
 	edited.emit(-1, -1)
 
 
-## Online: follow the room's shared clock, so everyone's drums and songs line up.
-func sync(server_clock: float) -> void:
-	if absf(server_clock - clock) > 0.03:
+## Online: follow the room's shared clock, so everyone's drums and songs line up. Small
+## differences are eased out (time never runs backwards); a big one jumps straight there.
+func sync(server_clock: float, delta: float) -> void:
+	var err := server_clock - clock
+	if absf(err) > 0.5:
 		clock = server_clock
 		_next_step = int(ceil(clock / STEP_SECONDS))
+	else:
+		clock += clampf(err * 0.1, -0.5 * delta, 0.5 * delta)
 
 
 func current_step() -> int:
