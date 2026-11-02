@@ -161,6 +161,7 @@ func _on_message(m: Dictionary) -> void:
 			booth_owner = m["booth"]
 			main.room.set_booth_busy(booth_owner != null)
 			main.beats.pattern = m["pattern"]
+			main.show_key(int(m.get("key", VoiceMap.key)))
 			_offset = float(m["clock"]) - _now()
 			main.beats.sync_offset(_offset, true)
 			_have_clock = true
@@ -200,6 +201,8 @@ func _on_message(m: Dictionary) -> void:
 			game_changed.emit()
 		"beat":
 			main.beats.pattern = m["pattern"]
+		"key":
+			main.show_key(int(m["k"]))
 		"pong":
 			# Half the round trip has passed since the server read its clock. Trust the
 			# quickest round trips most (slow ones were held up somewhere).
@@ -213,7 +216,7 @@ func _on_message(m: Dictionary) -> void:
 
 
 func _add_section(s: Dictionary, quiet: bool) -> void:
-	var i: int = main.song.add_section(s["keys"], str(s.get("owner", "")), str(s.get("name", "")))
+	var i: int = main.song.add_section(s["keys"], str(s.get("owner", "")), str(s.get("name", "")), int(s.get("voice", -1)))
 	if i < 0:
 		return
 	if quiet:
@@ -249,9 +252,16 @@ func booth_owner_name() -> String:
 	return o["name"] if o else "someone"
 
 
-func add_section(keys: Array) -> void:
+func add_section(keys: Array, voice: int) -> void:
 	if connected:
-		_send({"t": "section", "keys": keys})
+		_send({"t": "section", "keys": keys, "voice": voice})
+
+
+## Sets the song's key for everyone (VoiceMap.key).
+func set_key(k: int) -> void:
+	VoiceMap.key = k
+	if connected:
+		_send({"t": "key", "k": k})
 
 
 func clear_song() -> void:

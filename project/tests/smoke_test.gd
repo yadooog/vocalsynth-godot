@@ -115,6 +115,19 @@ func _initialize() -> void:
 			printerr("FAIL: walked up the back of the stage (to %s)" % walker)
 			ok = false
 		print("ok: world")
+		# The key: in C major every pitch lands on a white note; with no key it slides.
+		VoiceMap.key = 0
+		for px in [0.0, 0.13, 0.29, 0.5, 0.77, 1.0]:
+			var note := 69.0 + 12.0 * log(VoiceMap.frequency(px, -5) / 440.0) / log(2.0)
+			if absf(note - roundf(note)) > 0.01 or not [0, 2, 4, 5, 7, 9, 11].has(posmod(roundi(note), 12)):
+				printerr("FAIL: pitch %.2f isn't in C major (note %.2f)" % [px, note])
+				ok = false
+		VoiceMap.key = -1
+		if absf(VoiceMap.frequency(0.02) - VoiceMap.BASE_NOTE * pow(2.0, 0.48 / 12.0)) > 0.01:
+			printerr("FAIL: with no key the pitch should slide")
+			ok = false
+		VoiceMap.key = 0
+		print("ok: key")
 		# The booth: walk in, make a phrase, finish, and it joins the song.
 		if not World.in_booth(World.BOOTH["x"], World.BOOTH["z"]) or World.in_booth(0.0, 0.0):
 			printerr("FAIL: in_booth is wrong")
@@ -209,6 +222,11 @@ func _initialize() -> void:
 			ok = false
 		main._finish_booth() # nothing made: just step out
 		var keys := [{"t": 0.0, "ease": "smooth", "f": main.capture_frame(true)}]
+		main.replace_song([{"i": 0, "owner": "p1", "name": "warble", "keys": keys, "voice": 2},
+			{"i": 1, "owner": "p1", "name": "warble", "keys": keys}])
+		if main.song.sections[0]["voice"] != 2 or main.song.sections[1]["voice"] != 0 or main.song.free_voice() != 1:
+			printerr("FAIL: song voices %s, %s, next %d" % [main.song.sections[0]["voice"], main.song.sections[1]["voice"], main.song.free_voice()])
+			ok = false
 		main.replace_song([{"i": 0, "owner": "p1", "name": "warble", "keys": keys}])
 		net.game = {"phase": "vote", "round": 1, "brief": "jazz", "ends": main.beats.clock + 30.0, "voted": [],
 			"sections": [{"i": 0, "owner": "p1", "name": "warble", "stays": 0},

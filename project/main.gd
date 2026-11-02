@@ -544,6 +544,8 @@ var booth_button: Button
 var song_label: Label
 var spotlight: Node3D
 var listen := -1              # in a vote: the loop you're listening to on its own
+var voice_part := -1          # in the booth: which of VoiceMap.VOICES your section is for
+var _size_before := 0.5
 var game_card: PanelContainer # the round, top right (net/game_card.gd)
 var round_button: Button      # "play a round", in the top bar
 
@@ -631,6 +633,7 @@ func _update_booth(delta: float) -> void:
 			if song.is_full():
 				if not inside:
 					booth_state = "room"
+					_set_voice_part(-1)
 					zoom = _zoom_before
 					room.set_booth_busy(false)
 					net.leave_booth()
@@ -710,7 +713,7 @@ func replace_song(sections: Array) -> void:
 	listen = -1
 	song.clear()
 	for s in sections:
-		song.set_live(song.add_section(s["keys"], str(s.get("owner", "")), str(s.get("name", ""))))
+		song.set_live(song.add_section(s["keys"], str(s.get("owner", "")), str(s.get("name", "")), int(s.get("voice", -1))))
 
 
 ## On your turn in a round: straight into the booth, wherever you are.
@@ -733,6 +736,48 @@ func _build_game_ui() -> void:
 	row.add_child(round_button)
 	row.move_child(round_button, %HelpButton.get_index())
 	move_child(%Help, -1) # help stays on top
+	# The song's key, on the beat panel: ‹ C major ›.
+	var head: Node = %BeatPanel.get_node("Box/Head")
+	var at: int = head.get_node("Bpm").get_index() + 1
+	for step in [-1, 1]:
+		var b := Button.new()
+		b.text = "‹" if step < 0 else "›"
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = "the song's key: everyone's notes snap to it"
+		b.pressed.connect(_step_key.bind(step))
+		head.add_child(b)
+		head.move_child(b, at)
+		at += 1
+		if step < 0:
+			_key_label = Label.new()
+			_key_label.theme_type_variation = &"DimLabel"
+			head.add_child(_key_label)
+			head.move_child(_key_label, at)
+			at += 1
+	show_key(VoiceMap.key)
+
+
+var _key_label: Label
+# The keys in the order the arrows step through them: none, C major, C minor, C# major...
+var _key_order := [-1]
+
+
+func _step_key(step: int) -> void:
+	if _key_order.size() == 1:
+		for root in 12:
+			_key_order.append_array([root, root + 12])
+	var i := (_key_order.find(VoiceMap.key) + step + _key_order.size()) % _key_order.size()
+	net.set_key(_key_order[i])
+	show_key(_key_order[i])
+
+
+## The song's key changed (here or by someone else).
+func show_key(k: int) -> void:
+	VoiceMap.key = k
+	if _key_label:
+		_key_label.text = VoiceMap.key_name(k)
+	if pitch_pad:
+		_on_pitch_moved(pitch_pad.value)
 
 
 func _enter_booth() -> void:
@@ -751,7 +796,8 @@ func _enter_booth() -> void:
 		_place_booth_bar()
 		return
 	booth_left = BOOTH_SECONDS
-	booth_title.text = "in the booth"
+	_set_voice_part(song.free_voice())
+	booth_title.text = "in the booth: you're the %s" % VoiceMap.VOICES[voice_part]["name"]
 	booth_button.text = "done"
 	timeline.stop()
 	timeline.clear()
@@ -772,7 +818,25 @@ func _on_booth_button() -> void:
 		_finish_booth()
 
 
+## In the booth, your voice is the song's next free one: its size is fixed and the pitch pad
+## covers its range. -1 gives you your own voice back.
+func _set_voice_part(v: int) -> void:
+	if v >= 0 and voice_part < 0:
+		_size_before = size_slider.value.y
+	var was := voice_part
+	voice_part = v
+	size_slider.mouse_filter = Control.MOUSE_FILTER_IGNORE if v >= 0 else Control.MOUSE_FILTER_STOP
+	size_slider.modulate.a = 0.45 if v >= 0 else 1.0
+	if v >= 0:
+		size_slider.set_value(Vector2(0.5, VoiceMap.VOICES[v]["sz"]))
+	elif was >= 0:
+		size_slider.set_value(Vector2(0.5, _size_before))
+	_on_pitch_moved(pitch_pad.value)
+
+
 func _finish_booth() -> void:
+	var voice := voice_part
+	_set_voice_part(-1)
 	room.set_booth_busy(false)
 	zoom = _zoom_before
 	%LoopBeat.button_pressed = false
@@ -785,9 +849,9 @@ func _finish_booth() -> void:
 		booth_bar.visible = false
 		_put_character(World.BOOTH_EXIT, PI / 2)
 		return
-	reveal_index = song.add_section(keys, net.you, net.my_name)
+	reveal_index = song.add_section(keys, net.you, net.my_name, voice)
 	if reveal_index >= 0:
-		net.add_section(keys)
+		net.add_section(keys, song.sections[reveal_index]["voice"])
 	net.leave_booth() # after the section, so a round still counts it as your turn's
 	timeline.clear()
 	if reveal_index < 0:
@@ -1059,6 +1123,10 @@ the booth: walk into the booth next to the stage to make your section of the son
 
 online: everyone here shares the booth, the song and the beat. play a round starts a game that keeps going round after round: one player picks the brief (a word, a theme or a genre), then everyone takes a 2 minute turn in the booth to add a loop. then you vote for your favourite new loop (not your own). each vote is a point. the top new loop stays on in the song, so the song builds up round by round, and every loop of yours still on scores 2 more points each round. the newest 3 loops stay on.
 
+the key: on the beat panel, ‹ › sets the song's key. everyone's notes snap to it, so the song stays in tune.
+
+the voices: the song has a voice for each loop, from a big low bass to a tiny squeak. in the booth you get the lowest one still free, so your size is set and the pitch pad covers that voice's range.
+
 the beat: the drums play on the stage at 120 bpm. a phrase is 4 seconds = 2 bars, so loop on beat repeats yours in time with the drums. stand on the stage to change the beat.
 
 keys: space play · l loop · r record · h hold sound · b loop on beat · k add key · [ ] step keys · delete removes a key · esc deselect
@@ -1069,7 +1137,7 @@ pink trombone by neil thapen (2017), modular version by christian d'heureuse. mi
 func _on_pitch_moved(v: Vector2) -> void:
 	if not synth:
 		return
-	synth.frequency = VoiceMap.frequency(v.x)
+	synth.frequency = VoiceMap.frequency(v.x, VoiceMap.VOICES[voice_part]["shift"] if voice_part >= 0 else 0.0)
 	synth.tenseness = VoiceMap.tenseness(v.y)
 
 
@@ -1102,7 +1170,7 @@ func _on_mouth_moved(v: Vector2) -> void:
 
 func _on_size_moved(v: Vector2) -> void:
 	if synth:
-		synth.voice_size = VoiceMap.voice_size(v.y)
+		synth.voice_size = VoiceMap.voice_size(VoiceMap.VOICES[voice_part]["sz"] if voice_part >= 0 else v.y)
 
 
 # ---------------------------------------------------------------- timeline
@@ -1125,7 +1193,8 @@ func apply_frame(f: Dictionary) -> void:
 		return
 	pitch_pad.set_value(Vector2(f["px"], f["py"]))
 	mouth_pad.set_value(Vector2(f["mx"], f["my"]))
-	size_slider.set_value(Vector2(0.5, f["sz"]))
+	if voice_part < 0: # in the booth the size is your voice's
+		size_slider.set_value(Vector2(0.5, f["sz"]))
 	synth.set_tongue(f["ti"], f["td"])
 	voicebox.set_closures(f.get("cs", []))
 	if timeline.playing or timeline.is_scrubbing():

@@ -4,11 +4,11 @@ extends Node
 ## mouths along. main.gd drives it every frame with update().
 
 const MAX_SECTIONS := 6
-const SINGER_SCALE := 0.8   # they stand at World.SINGER_SPOTS, on the stage
+const SINGER_SCALE := 0.8   # they stand at World.SINGER_SPOTS, on the stage, low voice to high
 const HEADS := [Color("#a8dcb4"), Color("#f4c87a"), Color("#b9b0f2"), Color("#f29a8a"), Color("#8fd3e8"), Color("#e8e08f")]
 const OUTFITS := [Color("#f4a9c4"), Color("#6fb8e8"), Color("#f4eec0"), Color("#86c79a"), Color("#e9a8f0"), Color("#9a9aa6")]
 
-var sections: Array = []   # [{keys, synth, player, touching, singer, live, owner, name}]
+var sections: Array = []   # [{keys, synth, player, touching, singer, live, owner, name, voice}]
 var stage_parent: Node3D   # where singers are added (the room)
 var _character_script := preload("res://character/character.gd")
 
@@ -17,12 +17,23 @@ func is_full() -> bool:
 	return sections.size() >= MAX_SECTIONS
 
 
+## The lowest of VoiceMap.VOICES that no section in the song sings yet.
+func free_voice() -> int:
+	for v in VoiceMap.VOICES.size():
+		if not sections.any(func(s): return s["voice"] == v):
+			return v
+	return 0
+
+
 ## Adds a phrase to the song. It stays silent (and its singer hidden) until set_live().
-## Online, `owner` is the id of the player who made it and `who` their name.
-func add_section(keys: Array, owner := "", who := "") -> int:
+## Online, `owner` is the id of the player who made it and `who` their name. `voice` is which
+## of VoiceMap.VOICES sings it (taken already, or -1: the lowest free one).
+func add_section(keys: Array, owner := "", who := "", voice := -1) -> int:
 	if is_full() or keys.is_empty() or not ClassDB.class_exists("PinkTrombone"):
 		return -1
 	var i := sections.size()
+	if voice < 0 or voice >= VoiceMap.VOICES.size() or sections.any(func(s): return s["voice"] == voice):
+		voice = free_voice()
 	var synth = ClassDB.instantiate("PinkTrombone")
 	synth.setup(AudioServer.get_mix_rate())
 	if "tongue_full_range" in synth:
@@ -39,14 +50,15 @@ func add_section(keys: Array, owner := "", who := "") -> int:
 	var singer: Node3D = _character_script.new()
 	singer.head_color = HEADS[i % HEADS.size()]
 	singer.outfit_color = OUTFITS[i % OUTFITS.size()]
-	var spot: Vector2 = World.SINGER_SPOTS[i]
+	var spot: Vector2 = World.SINGER_SPOTS[voice]
 	singer.position = Vector3(spot.x, World.height(spot.x, spot.y), spot.y)
-	singer.scale = Vector3.ONE * SINGER_SCALE
+	singer.scale = Vector3.ONE * SINGER_SCALE * lerpf(1.2, 0.8, voice / 5.0) # big voices, big singers
 	singer.visible = false
 	if stage_parent:
 		stage_parent.add_child(singer)
 	sections.append({"keys": keys.duplicate(true), "synth": synth, "player": player,
-		"touching": [false, false], "singer": singer, "live": false, "owner": owner, "name": who})
+		"touching": [false, false], "singer": singer, "live": false, "owner": owner, "name": who,
+		"voice": voice})
 	return i
 
 
@@ -69,7 +81,7 @@ func update(delta: float, loop_pos: float, volume: float, time: float, solo := -
 	for i in sections.size():
 		var s: Dictionary = sections[i]
 		var on: bool = (i == solo) if solo >= 0 else s["live"]
-		VoiceMap.apply(s["synth"], Phrase.sample(s["keys"], loop_pos), s["touching"])
+		VoiceMap.apply(s["synth"], Phrase.sample(s["keys"], loop_pos), s["touching"], s["voice"])
 		s["player"].volume_db = linear_to_db(maxf(volume if on else 0.0, 0.0001))
 		if s["singer"].visible and s["singer"].is_inside_tree():
 			s["singer"].update_character(delta, VoiceMap.face(s["synth"]) if on else {}, time)
