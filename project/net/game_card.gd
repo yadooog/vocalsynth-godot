@@ -85,7 +85,9 @@ func _rebuild() -> void:
 			_brief_edit.text = typed
 			_brief_edit.text_submitted.connect(_send_brief)
 			row.add_child(_brief_edit)
-			row.add_child(_button("go", func(): _send_brief(_brief_edit.text), &"BigButton", "brief_go"))
+			var go := _button("go", func(): _send_brief(_brief_edit.text), &"BigButton", "brief_go")
+			go.custom_minimum_size.x = 48.0
+			row.add_child(go)
 			_box.add_child(row)
 			var ideas := HFlowContainer.new()
 			ideas.add_theme_constant_override("h_separation", 6)
@@ -147,7 +149,7 @@ func _rebuild() -> void:
 		for s in g.get("sections", []):
 			var i := int(s["i"])
 			var row := _row()
-			var who := _label(_section_name(s), &"BoldLabel" if i == winner else &"Label")
+			var who := _label(_section_name(s, false), &"BoldLabel" if i == winner else &"Label")
 			who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(who)
 			var n: int = int(tally[i]) if i < tally.size() else 0
@@ -185,9 +187,10 @@ func _status(g: Dictionary, phase: String) -> String:
 	return ""
 
 
-func _section_name(s: Dictionary) -> String:
+## Whose loop it is, and (in the vote) whether it stayed on from last round.
+func _section_name(s: Dictionary, mark_stays := true) -> String:
 	var who := "you" if s["owner"] == net.you else str(s["name"])
-	return who + (" · stayed on" if int(s.get("stays", 0)) > 0 else "")
+	return who + (" · stayed on" if mark_stays and int(s.get("stays", 0)) > 0 else "")
 
 
 func _focus_brief() -> void:
