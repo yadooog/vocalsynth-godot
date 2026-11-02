@@ -218,7 +218,7 @@ func _hint(g: Dictionary, phase: String) -> String:
 			if net.my_turn():
 				return "go to the booth and make a loop that fits the brief. it joins the song when you come out"
 			var queue: Array = g.get("queue", [])
-			var who := net.name_of(g.get("turn"), str(g.get("turnName", "someone")))
+			var who: String = net.name_of(g.get("turn"), str(g.get("turnName", "someone")))
 			if not queue.is_empty() and queue[0] == net.you:
 				return "%s is in the booth. you're next" % who
 			return "%s is making a loop in the booth" % who
