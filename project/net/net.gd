@@ -23,6 +23,8 @@ var _was_voiced := false
 var _offset := 0.0             # server clock minus our clock
 var _have_clock := false
 var _tried := false
+var _retry_left := 0.0
+var _retry_wait := 3.0
 var _character_script := preload("res://character/character.gd")
 
 
@@ -69,11 +71,21 @@ func _process(delta: float) -> void:
 		if _ping_left <= 0.0:
 			_ping_left = PING_EVERY
 			_send({"t": "ping", "c": Time.get_ticks_msec() / 1000.0})
-	elif state == WebSocketPeer.STATE_CLOSED and connected:
-		connected = false
-		for id in others.keys():
-			_remove(id)
-		booth_owner = null
+	elif state == WebSocketPeer.STATE_CLOSED:
+		if connected:
+			connected = false
+			_have_clock = false
+			for id in others.keys():
+				_remove(id)
+			booth_owner = null
+			main.room.set_booth_busy(false)
+		# Try again now and then, waiting longer each time.
+		_retry_left -= delta
+		if _retry_left <= 0.0:
+			_retry_left = _retry_wait
+			_retry_wait = minf(_retry_wait * 2.0, 60.0)
+			ws = WebSocketPeer.new()
+			ws.connect_to_url(url())
 	if _have_clock:
 		main.beats.sync(Time.get_ticks_msec() / 1000.0 + _offset)
 	_update_others(delta)
@@ -105,6 +117,7 @@ func _on_message(m: Dictionary) -> void:
 	match m.get("t"):
 		"welcome":
 			connected = true
+			_retry_wait = 3.0
 			you = m["you"]["id"]
 			for p in m["players"]:
 				_add(p)
@@ -140,6 +153,7 @@ func _on_message(m: Dictionary) -> void:
 				_add_section(m, false)
 		"song-clear":
 			main.song.clear()
+			main.end_remote_reveal()
 		"beat":
 			main.beats.pattern = m["pattern"]
 		"pong":
@@ -151,8 +165,12 @@ func _on_message(m: Dictionary) -> void:
 
 func _add_section(s: Dictionary, quiet: bool) -> void:
 	var i: int = main.song.add_section(s["keys"])
-	if i >= 0:
+	if i < 0:
+		return
+	if quiet:
 		main.song.set_live(i)
+	else:
+		main.reveal_remote(i, str(s.get("name", "someone")))
 
 
 # ---------------------------------------------------------------- what we tell the room
@@ -271,6 +289,8 @@ func _update_others(delta: float) -> void:
 		node.rotation.y = lerp_angle(node.rotation.y, o["ry"], 1.0 - exp(-12.0 * delta))
 		var flat := Vector2(node.position.x - before.x, node.position.z - before.z)
 		node.drive_speed = flat.length() / maxf(delta, 1e-3)
+		var lift: float = node.position.y - World.height(node.position.x, node.position.z)
+		node.floor_shadow.position.y = 0.006 - maxf(lift, 0.0)
 		var f: Dictionary = o["f"]
 		var face := {}
 		if o["synth"]:

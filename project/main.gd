@@ -149,6 +149,8 @@ func _process(delta: float) -> void:
 	_update_stage()
 	var lp: float = beats.loop_position() if beats else 0.0
 	var solo := reveal_index if booth_state == "reveal" else -1
+	if solo < 0:
+		solo = _update_remote_reveal()
 	if song:
 		song.update(delta, lp, 1.0 if booth_state == "booth" else song_volume, time, solo)
 	if booth_state == "reveal":
@@ -529,6 +531,9 @@ var booth_left := 0.0
 var reveal_index := -1
 var _zoom_before := 1.0
 var _reveal_last_lp := 0.0
+var remote_reveal := -1       # someone else's new section, playing on its own for a loop
+var _remote_solo := false     # false: waiting for the next loop; true: playing it alone
+var _remote_last_lp := 0.0
 var booth_bar: PanelContainer
 var booth_title: Label
 var booth_timer: Label
@@ -637,6 +642,51 @@ func _update_booth(delta: float) -> void:
 					spotlight.visible = false
 					booth_bar.visible = false
 			_reveal_last_lp = lp
+
+
+## Online: someone else just finished in the booth. Their section plays on its own for one
+## loop (they're in the spotlight), then joins the song, the same as your own reveal.
+func reveal_remote(i: int, who: String) -> void:
+	if remote_reveal >= 0:
+		song.set_live(remote_reveal)
+	remote_reveal = i
+	_remote_solo = false
+	_remote_last_lp = beats.loop_position()
+	spotlight.visible = true
+	if booth_state == "room":
+		booth_title.text = "%s's section" % who
+		booth_timer.text = ""
+		booth_button.visible = false
+		booth_bar.visible = true
+		_place_booth_bar()
+		_busy_left = 1e9
+
+
+## Returns the section playing alone for someone else's reveal, or -1.
+func _update_remote_reveal() -> int:
+	if remote_reveal < 0:
+		return -1
+	if remote_reveal >= song.sections.size(): # the song was cleared
+		end_remote_reveal()
+		return -1
+	var lp: float = beats.loop_position()
+	if lp < _remote_last_lp:
+		if not _remote_solo:
+			_remote_solo = true
+		else:
+			song.set_live(remote_reveal)
+			end_remote_reveal()
+			return -1
+	_remote_last_lp = lp
+	return remote_reveal if _remote_solo else -1
+
+
+func end_remote_reveal() -> void:
+	remote_reveal = -1
+	if booth_state == "room":
+		spotlight.visible = false
+		booth_bar.visible = false
+		_busy_left = 0.0
 
 
 func _enter_booth() -> void:
