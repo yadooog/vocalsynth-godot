@@ -218,4 +218,9 @@ static func step(p: Vector2, input: Vector2, dt: float) -> Vector2:
 	var len := input.length()
 	if len < 0.01:
 		return p
-	return resolve(p + input / len * minf(1.0, len) * WALK_SPEED * dt)
+	# Small sub-steps, so a slow frame can't carry you through a thin wall.
+	var move := input / len * minf(1.0, len) * WALK_SPEED * dt
+	var n := maxi(1, ceili(move.length() / 0.3))
+	for i in n:
+		p = resolve(p + move / n)
+	return p
