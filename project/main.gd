@@ -597,6 +597,8 @@ func _update_booth(delta: float) -> void:
 	song_label.text = "song %d/%d" % [song.sections.size(), song.MAX_SECTIONS]
 	%TopBar.get_node("Row/Online").text = "%d online" % net.count() if net and net.is_online() else "offline"
 	var inside := World.in_booth(character.position.x, character.position.z)
+	if Engine.get_process_frames() % 20 == 0 and character.position.x < -22.0:
+		print("debug: booth %s pos %s inside %s" % [booth_state, character.position, inside])
 	match booth_state:
 		"room":
 			_busy_left -= delta
