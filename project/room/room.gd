@@ -110,6 +110,8 @@ func _build() -> void:
 	# Rugs: a pastel disc on a slightly bigger ink disc (the ring), with the name on the floor.
 	for rug in World.RUGS:
 		var ry := World.rug_height(rug)
+		if ry > 0.0:
+			ry += 0.08 # clear of the ground's facets
 		_put(_cyl(rug["r"] + 0.06, rug["r"] + 0.06, 0.02, 64), _mat(INK), Vector3(rug["x"], ry + 0.005, rug["z"]))
 		_put(_cyl(rug["r"], rug["r"], 0.02, 64), _mat(rug["color"]), Vector3(rug["x"], ry + 0.012, rug["z"]))
 		if rug["name"] != "~/middle":
@@ -271,7 +273,7 @@ func _build_terrain() -> void:
 				# Flat faces, so the hills read as low-poly facets.
 				var mid := (a + b + c) / 3.0
 				var col := GRASS.lerp(GRASS_HIGH, clampf(mid.y / 12.0, 0.0, 1.0))
-				if n.y < 0.8:
+				if n.y < 0.8 and mid.y > 1.5:
 					col = col.lerp(DIRT, 0.6)
 				for v in [a, c, b]:
 					st.set_color(col)

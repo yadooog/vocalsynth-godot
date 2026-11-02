@@ -778,7 +778,15 @@ func _jump() -> void:
 		air = 0.001
 
 
+var _shift_was := false
+
+
 func _walk(delta: float) -> void:
+	# Shift jumps (polled like the walking keys, so it works however focus is set).
+	var shift := Input.is_key_pressed(KEY_SHIFT) and not get_viewport().gui_get_focus_owner() is LineEdit
+	if shift and not _shift_was:
+		_jump()
+	_shift_was = shift
 	var input := _walk_input()
 	var p := Vector2(character.position.x, character.position.z)
 	var np := p
@@ -1018,9 +1026,6 @@ func _on_playing_changed(on: bool) -> void:
 # Delete removes the selected key, [ and ] step through keys, Escape lets go.
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
-		return
-	if event.keycode == KEY_SHIFT:
-		_jump()
 		return
 	if synth == null:
 		return
