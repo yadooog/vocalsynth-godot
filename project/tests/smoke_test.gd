@@ -92,6 +92,10 @@ func _initialize() -> void:
 		print("info: audio thread advanced the synth by %.3f s" % (main.synth.get_time() - t0))
 		print("info: character walked to x=%.2f, head width %.2f height %.2f" % [character.position.x, character.head_sx, character.head_sy])
 		print("ok: character runs")
+		# The hills: plaza flat, hilltop raised, obstacles generated, jumping lands.
+		if absf(World.height(0, 4)) > 0.01 or World.height(0, -64) < 8.0 or World.obstacles().size() < 50:
+			printerr("FAIL: world heights %.2f %.2f, %d obstacles" % [World.height(0, 4), World.height(0, -64), World.obstacles().size()])
+		print("ok: world")
 		# The booth: walk in, make a phrase, finish, and it joins the song.
 		if not World.in_booth(World.BOOTH["x"], World.BOOTH["z"]) or World.in_booth(0.0, 0.0):
 			printerr("FAIL: in_booth is wrong")

@@ -114,6 +114,12 @@ func _ready() -> void:
 	# For testing the web build: index.html?spawn=booth starts you at the booth.
 	if OS.has_feature("web") and str(JavaScriptBridge.eval("location.search")).contains("spawn=booth"):
 		character.position = Vector3(World.BOOTH_EXIT.x, 0, World.BOOTH_EXIT.y)
+	# ...and index.html?spawn=hilltop (or any rug's name) starts you on that rug.
+	if OS.has_feature("web"):
+		var q := str(JavaScriptBridge.eval("location.search"))
+		for rug in World.RUGS:
+			if q.contains("spawn=" + str(rug["name"]).trim_prefix("~/")):
+				character.position = Vector3(rug["x"], World.rug_height(rug), rug["z"] + 2.0)
 	cam_target = character.position
 	_on_mouth_moved(mouth_pad.value)
 	_on_size_moved(size_slider.value)
@@ -680,7 +686,10 @@ func _finish_booth() -> void:
 
 
 func _put_character(p: Vector2, facing: float) -> void:
-	character.position = Vector3(p.x, 0, p.y)
+	air = 0.0
+	air_vel = 0.0
+	ground = World.height(p.x, p.y)
+	character.position = Vector3(p.x, ground, p.y)
 	character.rotation.y = facing
 	cam_target = character.position
 	stick = null
@@ -692,7 +701,7 @@ func _put_character(p: Vector2, facing: float) -> void:
 
 const JOYSTICK_RANGE := 60.0   # px of drag for full speed
 const ZOOM_MIN := 0.38         # closest: about face height, not so near the head clips
-const ZOOM_MAX := 1.8          # furthest out
+const ZOOM_MAX := 2.6          # furthest out: see across the hills
 # The lens changes with zoom: wide angle up close, flatter (telephoto) far out. The camera
 # moves in or out to make up for it, so things stay about the same size on screen.
 const FOV_CLOSE := 70.0
@@ -756,16 +765,44 @@ func _stick_input() -> Vector2:
 	return s / s.length() * minf(1.0, s.length())
 
 
+const JUMP_SPEED := 9.0
+const GRAVITY := 28.0
+var air := 0.0       # height above the ground while jumping
+var air_vel := 0.0
+var ground := 0.0
+
+
+func _jump() -> void:
+	if air <= 0.0 and booth_state != "reveal":
+		air_vel = JUMP_SPEED
+		air = 0.001
+
+
 func _walk(delta: float) -> void:
 	var input := _walk_input()
+	var p := Vector2(character.position.x, character.position.z)
+	var np := p
 	if input.length() < 0.01:
 		character.drive_speed = 0.0
-		return
-	var p := Vector2(character.position.x, character.position.z)
-	var np := World.step(p, input, delta)
-	character.position = Vector3(np.x, 0.0, np.y)
-	character.drive_speed = (np - p).length() / maxf(delta, 1e-3)
-	character.rotation.y = lerp_angle(character.rotation.y, atan2(input.x, input.y), 1.0 - exp(-14.0 * delta))
+	else:
+		np = World.step(p, input, delta)
+		character.drive_speed = (np - p).length() / maxf(delta, 1e-3)
+		character.rotation.y = lerp_angle(character.rotation.y, atan2(input.x, input.y), 1.0 - exp(-14.0 * delta))
+	# Stand on the ground, or fly through the air and land with a squash.
+	var new_ground := World.height(np.x, np.y)
+	if air > 0.0:
+		air += (ground - new_ground) # keep the same height in the world while airborne
+		air_vel -= GRAVITY * delta
+		air += air_vel * delta
+		if air <= 0.0:
+			character.squash = minf(0.4, -air_vel * 0.03)
+			character.sag_vel += air_vel * 0.4
+			air = 0.0
+			air_vel = 0.0
+	ground = new_ground
+	character.position = Vector3(np.x, ground + air, np.y)
+	character.floor_shadow.position.y = 0.006 - air
+	character.floor_shadow.scale = Vector3.ONE * clampf(1.0 - air * 0.12, 0.45, 1.0)
 
 
 func _update_camera(delta: float) -> void:
@@ -777,10 +814,10 @@ func _update_camera(delta: float) -> void:
 		var w := 1.0 - smoothstep(0.0, POI_REACH, gap)
 		if w > near_rug:
 			near_rug = w
-			poi_centre = Vector3(rug["x"], 0, rug["z"])
+			poi_centre = Vector3(rug["x"], World.rug_height(rug), rug["z"])
 	poi += (near_rug - poi) * (1.0 - exp(-2.5 * delta))
 	var pull := poi * smoothstep(1.0, 1.3, zoom)
-	var follow := Vector3(character.position.x, 0, character.position.z).lerp(poi_centre, 0.35 * pull)
+	var follow := Vector3(character.position.x, ground, character.position.z).lerp(poi_centre, 0.35 * pull)
 	cam_target = cam_target.lerp(follow, 1.0 - exp(-5.0 * delta))
 	var zoom_goal := lerpf(zoom, minf(zoom, POI_ZOOM), pull)
 	zoom_shown += (zoom_goal - zoom_shown) * (1.0 - exp(-12.0 * delta))
@@ -793,8 +830,8 @@ func _update_camera(delta: float) -> void:
 	var near := smoothstep(0.0, 1.0, (1.0 - z) / (1.0 - ZOOM_MIN))
 	var up := 0.95 - 0.7 * near
 	var look_y := 1.4 + 0.9 * near
-	var eye := Vector3(cam_target.x, look_y * near + back * up, cam_target.z + back)
-	var look := Vector3(cam_target.x, look_y, cam_target.z)
+	var eye := Vector3(cam_target.x, cam_target.y + look_y * near + back * up, cam_target.z + back)
+	var look := Vector3(cam_target.x, cam_target.y + look_y, cam_target.z)
 	camera.look_at_from_position(eye, look)
 	# Shift the view so the character sits at `focus` on screen, not hidden behind the panels.
 	var view := character_view.size
@@ -857,7 +894,7 @@ func _layout() -> void:
 
 const HELP := """getting started: drag on the voice box to make a sound. press record and play with the control pad, or add keys with + key, then tweak them on the timeline. space plays.
 
-walking: wasd / arrow keys, or press and drag on the room. scroll to zoom.
+walking: wasd / arrow keys, or press and drag on the room. shift jumps. scroll to zoom.
 
 the control pad: drag the tongue in its slice, press along the tube to close it, use the pitch and mouth pads and the size slider. with a key selected, that edits the key.
 
@@ -977,10 +1014,15 @@ func _on_playing_changed(on: bool) -> void:
 		_update_voicing()
 
 
-# Keyboard, as in the web game: space or P plays, K adds a key, H holds, L loops, R records,
+# Keyboard, as in the web game: space or P plays, shift jumps, K adds a key, H holds, L loops, R records,
 # Delete removes the selected key, [ and ] step through keys, Escape lets go.
 func _unhandled_key_input(event: InputEvent) -> void:
-	if not (event is InputEventKey and event.pressed and not event.echo) or synth == null:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.keycode == KEY_SHIFT:
+		_jump()
+		return
+	if synth == null:
 		return
 	match event.keycode:
 		KEY_SPACE, KEY_P:

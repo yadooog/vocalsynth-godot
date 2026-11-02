@@ -12,11 +12,19 @@ const POT := Color("#f4eec0")
 const LEAF := Color("#a8dcb4")
 const LEAF_DARK := Color("#86c79a")
 const WALL := Color("#e4dcf2")
+const GRASS := Color("#dcebc9")
+const GRASS_HIGH := Color("#eef0d2")
+const DIRT := Color("#eadfca")
+const WATER := Color("#bfe0f2")
+const ROCK := Color("#d8d4cc")
+const PINE := Color("#8fcfa4")
+const PINE_DARK := Color("#74b98c")
 
 
 var speakers: Array = []   # [box, cone] pairs that bounce on the kick drum
 var _thump := 0.0
 var booth_light: ShaderMaterial
+var _into: Node3D                # where _put adds meshes (null: this node)
 
 
 func _ready() -> void:
@@ -59,7 +67,7 @@ func _put(mesh: Mesh, mat: Material, pos: Vector3, rot := Vector3.ZERO) -> MeshI
 	mi.material_override = mat
 	mi.position = pos
 	mi.rotation = rot
-	add_child(mi)
+	(_into if _into else self).add_child(mi)
 	return mi
 
 
@@ -97,17 +105,13 @@ func _build() -> void:
 	var floor_mat := ShaderMaterial.new()
 	floor_mat.shader = preload("res://room/floor.gdshader")
 	_put(_box(Vector3(World.WIDTH, 0.1, World.DEPTH)), floor_mat, Vector3(0, -0.05, 0))
-	var t := 0.4
-	var h := 1.2
-	var wall := _mat(WALL)
-	for w in [[0.0, -World.DEPTH / 2 - t / 2, World.WIDTH + t * 2, t], [0.0, World.DEPTH / 2 + t / 2, World.WIDTH + t * 2, t],
-			[-World.WIDTH / 2 - t / 2, 0.0, t, World.DEPTH], [World.WIDTH / 2 + t / 2, 0.0, t, World.DEPTH]]:
-		_put(_box(Vector3(w[2], h, w[3])), wall, Vector3(w[0], h / 2, w[1]))
+	_build_terrain()
 
 	# Rugs: a pastel disc on a slightly bigger ink disc (the ring), with the name on the floor.
 	for rug in World.RUGS:
-		_put(_cyl(rug["r"] + 0.06, rug["r"] + 0.06, 0.02, 64), _mat(INK), Vector3(rug["x"], 0.005, rug["z"]))
-		_put(_cyl(rug["r"], rug["r"], 0.02, 64), _mat(rug["color"]), Vector3(rug["x"], 0.012, rug["z"]))
+		var ry := World.rug_height(rug)
+		_put(_cyl(rug["r"] + 0.06, rug["r"] + 0.06, 0.02, 64), _mat(INK), Vector3(rug["x"], ry + 0.005, rug["z"]))
+		_put(_cyl(rug["r"], rug["r"], 0.02, 64), _mat(rug["color"]), Vector3(rug["x"], ry + 0.012, rug["z"]))
 		if rug["name"] != "~/middle":
 			var label := Label3D.new()
 			label.text = rug["name"]
@@ -116,7 +120,7 @@ func _build() -> void:
 			label.font_size = 64
 			label.pixel_size = 0.01
 			label.rotation = Vector3(-PI / 2, 0, 0)
-			label.position = Vector3(rug["x"], 0.03, rug["z"] + rug["r"] - 0.9)
+			label.position = Vector3(rug["x"], ry + 0.03, rug["z"] + rug["r"] - 0.9)
 			add_child(label)
 
 	var white := _mat(WHITE)
@@ -124,10 +128,39 @@ func _build() -> void:
 	var pot := _mat(POT, true)
 	var leaf := _mat(LEAF, true)
 	var leaf_dark := _mat(LEAF_DARK, true)
-	for o in World.OBSTACLES:
+	var pine := _mat(PINE, true)
+	var pine_dark := _mat(PINE_DARK, true)
+	var trunk := _mat(WOOD, true, 0.03)
+	var rock := _mat(ROCK, true)
+	for o in World.obstacles():
 		var x: float = o["x"]
 		var z: float = o["z"]
+		# Things out in the hills stand on the ground; build them at the origin of a holder.
+		_into = null
+		if o["kind"] in ["pine", "bush", "rock", "pond"]:
+			_into = Node3D.new()
+			_into.position = Vector3(x, World.height(x, z) if o["kind"] != "pond" else 0.0, z)
+			add_child(_into)
+			x = 0.0
+			z = 0.0
 		match o["kind"]:
+			"pine":
+				var k: float = o["s"]
+				_put(_cyl(0.18 * k, 0.26 * k, 1.6 * k, 8), trunk, Vector3(0, 0.6 * k, 0))
+				_put(_cone(1.7 * k, 2.8 * k), pine_dark, Vector3(0, 2.4 * k, 0))
+				_put(_cone(1.3 * k, 2.4 * k), pine, Vector3(0, 3.6 * k, 0))
+			"bush":
+				var k: float = o["s"]
+				_put(_cyl(0.14 * k, 0.2 * k, 2.4 * k, 8), trunk, Vector3(0, 1.1 * k, 0))
+				_put(_ball(1.4 * k), leaf, Vector3(0, 2.8 * k, 0))
+				_put(_ball(0.9 * k), leaf_dark, Vector3(0.7 * k, 2.3 * k, 0.4 * k))
+			"rock":
+				var k: float = o["s"]
+				var r := _put(_ball(1.0 * k), rock, Vector3(0, 0.2 * k, 0))
+				r.scale = Vector3(1.2, 0.7, 1.0)
+			"pond":
+				var wr: float = World.POND["r"] + 1.3
+				_put(_cyl(wr, wr, 0.02, 64), _mat(WATER), Vector3(0, World.POND["water"], 0))
 			"column":
 				var r: float = o["r"]
 				_put(_cyl(r, r, 4.0), _mat(WHITE, true), Vector3(x, 2.0, z))
@@ -185,6 +218,9 @@ func _build() -> void:
 				for sx in [-1.0, 1.0]:
 					_put(_box(Vector3(0.2, 0.95, d * 0.8)), white, Vector3(x + sx * (w / 2 - 0.4), 0.47, z))
 
+	_into = null
+	_build_flowers()
+
 	# The booth's floor, sign and "on air" light.
 	var bx: float = World.BOOTH["x"]
 	var bz: float = World.BOOTH["z"]
@@ -200,3 +236,76 @@ func _build() -> void:
 	add_child(booth_sign)
 	booth_light = _mat(Color("#86c79a"), true, 0.03)
 	_put(_ball(0.22), booth_light, Vector3(bx + World.BOOTH["w"] / 2.0 - 0.15, 1.65, bz - 1.55))
+
+
+# The hills: one big grid mesh around the plaza, coloured by height.
+func _build_terrain() -> void:
+	var step := 2.0
+	var nx := int(World.MAP_HX * 2.0 / step) + 1
+	var nz := int(World.MAP_HZ * 2.0 / step) + 1
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var hs := PackedFloat32Array()
+	hs.resize(nx * nz)
+	for j in nz:
+		for i in nx:
+			var x := -World.MAP_HX + i * step
+			var z := -World.MAP_HZ + j * step
+			var h := World.height(x, z)
+			# Tuck the ground under the plaza's floor.
+			if absf(x) < World.WIDTH / 2.0 + 0.5 and absf(z) < World.DEPTH / 2.0 + 0.5:
+				h = minf(h, -0.12)
+			hs[j * nx + i] = h
+	var pos := func(i: int, j: int) -> Vector3:
+		return Vector3(-World.MAP_HX + i * step, hs[j * nx + i], -World.MAP_HZ + j * step)
+	for j in nz - 1:
+		for i in nx - 1:
+			var quad := [pos.call(i, j), pos.call(i + 1, j), pos.call(i + 1, j + 1), pos.call(i, j + 1)]
+			for tri in [[0, 1, 2], [0, 2, 3]]:
+				var a: Vector3 = quad[tri[0]]
+				var b: Vector3 = quad[tri[1]]
+				var c: Vector3 = quad[tri[2]]
+				var n := (c - a).cross(b - a).normalized()
+				if n.y < 0.0:
+					n = -n
+				# Flat faces, so the hills read as low-poly facets.
+				var mid := (a + b + c) / 3.0
+				var col := GRASS.lerp(GRASS_HIGH, clampf(mid.y / 12.0, 0.0, 1.0))
+				if n.y < 0.8:
+					col = col.lerp(DIRT, 0.6)
+				for v in [a, c, b]:
+					st.set_color(col)
+					st.set_normal(n)
+					st.add_vertex(v)
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://room/terrain.gdshader")
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	add_child(mi)
+
+
+# Flowers dotted over the meadow: one multimesh, no outlines.
+func _build_flowers() -> void:
+	var colors := [Color("#f4a6c8"), Color("#fbe28c"), Color("#ffffff"), Color("#c6b4f2")]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = _ball(0.18)
+	mm.instance_count = 240
+	var meadow: Dictionary = World.RUGS[8]
+	for k in mm.instance_count:
+		var a := rng.randf() * TAU
+		var d := lerpf(meadow["r"] + 1.0, 26.0, sqrt(rng.randf()))
+		var x: float = meadow["x"] + cos(a) * d
+		var z: float = meadow["z"] + sin(a) * d * 0.8
+		mm.set_instance_transform(k, Transform3D(Basis(), Vector3(x, World.height(x, z) + 0.2, z)))
+		mm.set_instance_color(k, colors[k % colors.size()])
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://room/flower.gdshader")
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = mat
+	add_child(mmi)

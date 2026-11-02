@@ -2,8 +2,10 @@ class_name World
 ## The rules of the hub room: its size, where things stand, and how walking slides around
 ## them. Ported from the web game's shared/world.js (same numbers, so the rooms match).
 
-const WIDTH := 60.0              # world units; the room is centred on (0, 0)
+const WIDTH := 60.0              # the plaza (the old hub room), centred on (0, 0)
 const DEPTH := 44.0
+const MAP_HX := 110.0            # the whole map: hills all round the plaza, to these half-sizes
+const MAP_HZ := 90.0
 const WALK_SPEED := 8.0          # units per second
 const PLAYER_RADIUS := 0.8       # keeps characters off the walls
 
@@ -50,9 +52,124 @@ const RUGS := [
 	{"x": 21.0, "z": 14.0, "r": 5.0, "color": Color("#d4f2dc"), "name": "~/quiet corner"},
 	{"x": 18.0, "z": -4.0, "r": 4.0, "color": Color("#cdeff6"), "name": "~/crates"},
 	{"x": -18.0, "z": 11.0, "r": 5.0, "color": Color("#e2def8"), "name": "~/lounge"},
+	# Out in the hills.
+	{"x": 0.0, "z": -64.0, "r": 5.0, "color": Color("#f6d9c4"), "name": "~/hilltop"},
+	{"x": 64.0, "z": 30.0, "r": 4.5, "color": Color("#cde3f6"), "name": "~/pond"},
+	{"x": -76.0, "z": 4.0, "r": 5.0, "color": Color("#d9ecc6"), "name": "~/forest"},
+	{"x": 6.0, "z": 62.0, "r": 5.0, "color": Color("#f8e2ef"), "name": "~/meadow"},
+	{"x": 70.0, "z": -48.0, "r": 4.0, "color": Color("#efe6c8"), "name": "~/lookout"},
 ]
 
+# Raised flat-topped hills: {x, z, top (flat radius), base (radius where it meets the ground), h}.
+const PLATEAUS := [
+	{"x": 0.0, "z": -64.0, "top": 7.5, "base": 30.0, "h": 9.0},     # ~/hilltop
+	{"x": 70.0, "z": -48.0, "top": 5.5, "base": 18.0, "h": 13.0},   # ~/lookout: small and steep
+	{"x": -40.0, "z": -55.0, "top": 4.0, "base": 20.0, "h": 6.0},
+	{"x": 40.0, "z": 70.0, "top": 3.0, "base": 22.0, "h": 5.0},
+]
+const POND := {"x": 64.0, "z": 16.0, "r": 9.0, "water": 0.4}
+const FOREST := {"x": -76.0, "z": 4.0, "r": 26.0, "clearing": 8.0}
+
 const STAGE := {"x": -16.0, "z": -9.5, "r": 5.0} # the ~/stage rug: stand here to edit the beat
+
+
+## Ground height at (x, z). The plaza is flat at 0; outside it the ground rolls, rises into
+## the plateaus, dips at the pond and climbs steeply at the map's edge.
+static func height(x: float, z: float) -> float:
+	var out_x := maxf(0.0, absf(x) - WIDTH / 2.0)
+	var out_z := maxf(0.0, absf(z) - DEPTH / 2.0)
+	var wild := smoothstep(1.0, 14.0, Vector2(out_x, out_z).length())
+	var h := 0.0
+	# Gentle rolling ground.
+	h += 1.2 * sin(x * 0.07 + 1.3) * sin(z * 0.06 + 0.4) + 0.6 * sin(x * 0.13 - z * 0.05 + 2.0)
+	h = (h + 1.0) * wild
+	for p in PLATEAUS:
+		var d := Vector2(x - p["x"], z - p["z"]).length()
+		h = maxf(h, p["h"] * (1.0 - smoothstep(p["top"], p["base"], d)))
+	var pd := Vector2(x - POND["x"], z - POND["z"]).length()
+	h = lerpf(1.0, h, smoothstep(POND["r"], POND["r"] + 8.0, pd))
+	h -= 3.0 * (1.0 - smoothstep(POND["r"] - 1.0, POND["r"] + 2.0, pd))
+	# Rugs sit flat.
+	for r in RUGS:
+		var rd := Vector2(x - r["x"], z - r["z"]).length()
+		if rd < r["r"] + 2.0 and Vector2(r["x"], r["z"]).length() > 40.0:
+			h = lerpf(_rug_height(r), h, smoothstep(r["r"] + 0.3, r["r"] + 2.0, rd))
+	# The edge of the world: steep hills.
+	var edge := maxf(absf(x) / MAP_HX, absf(z) / MAP_HZ)
+	h += 16.0 * smoothstep(0.82, 1.0, edge)
+	return h
+
+
+static var _rug_h := {}
+static func _rug_height(r: Dictionary) -> float:
+	var key: String = r["name"]
+	if not _rug_h.has(key):
+		_rug_h[key] = 0.0
+		var x: float = r["x"]
+		var z: float = r["z"]
+		var hh := 0.0
+		for p in PLATEAUS:
+			var d := Vector2(x - p["x"], z - p["z"]).length()
+			hh = maxf(hh, p["h"] * (1.0 - smoothstep(p["top"], p["base"], d)))
+		_rug_h[key] = hh if hh > 0.5 else 0.6
+	return _rug_h[key]
+
+
+## The height a rug is drawn at.
+static func rug_height(r: Dictionary) -> float:
+	if Vector2(r["x"], r["z"]).length() <= 40.0:
+		return 0.0
+	return _rug_height(r)
+
+
+## Everything solid: the plaza's furniture plus the trees and rocks out in the hills.
+static var _all: Array = []
+static func obstacles() -> Array:
+	if _all.is_empty():
+		_all = OBSTACLES.duplicate()
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7
+		var placed := 0
+		var tries := 0
+		while placed < 34 and tries < 2000:
+			tries += 1
+			var a := rng.randf() * TAU
+			var d := sqrt(rng.randf()) * FOREST["r"]
+			var x: float = FOREST["x"] + cos(a) * d
+			var z: float = FOREST["z"] + sin(a) * d * 1.4
+			if d < FOREST["clearing"] or not _free(x, z, 3.2):
+				continue
+			_all.append({"shape": "circle", "x": x, "z": z, "r": 0.7, "kind": "pine", "s": rng.randf_range(0.8, 1.35)})
+			placed += 1
+		# A few round trees and rocks scattered about the hills.
+		placed = 0
+		tries = 0
+		while placed < 26 and tries < 2000:
+			tries += 1
+			var x := rng.randf_range(-MAP_HX * 0.8, MAP_HX * 0.8)
+			var z := rng.randf_range(-MAP_HZ * 0.8, MAP_HZ * 0.8)
+			if absf(x) < WIDTH / 2.0 + 6.0 and absf(z) < DEPTH / 2.0 + 6.0:
+				continue
+			if Vector2(x - FOREST["x"], z - FOREST["z"]).length() < FOREST["r"] + 6.0 or not _free(x, z, 7.0):
+				continue
+			var rock := placed % 3 == 0
+			_all.append({"shape": "circle", "x": x, "z": z, "r": 1.0 if rock else 0.7, "kind": "rock" if rock else "bush", "s": rng.randf_range(0.8, 1.5)})
+			placed += 1
+		_all.append({"shape": "circle", "x": POND["x"], "z": POND["z"], "r": POND["r"] - 0.5, "kind": "pond"})
+	return _all
+
+
+## True when (x, z) is clear of rugs, the pond and other obstacles by `gap`.
+static func _free(x: float, z: float, gap: float) -> bool:
+	for r in RUGS:
+		if Vector2(x - r["x"], z - r["z"]).length() < r["r"] + gap:
+			return false
+	if Vector2(x - POND["x"], z - POND["z"]).length() < POND["r"] + gap:
+		return false
+	for o in _all:
+		if o["shape"] == "circle" and Vector2(x - o["x"], z - o["z"]).length() < gap:
+			return false
+	return true
 
 
 static func on_stage(x: float, z: float) -> bool:
@@ -66,15 +183,15 @@ static func in_booth(x: float, z: float) -> bool:
 
 
 static func clamp_to_room(p: Vector2) -> Vector2:
-	var hx := WIDTH / 2.0 - PLAYER_RADIUS
-	var hz := DEPTH / 2.0 - PLAYER_RADIUS
+	var hx := MAP_HX * 0.97
+	var hz := MAP_HZ * 0.97
 	return Vector2(clampf(p.x, -hx, hx), clampf(p.y, -hz, hz))
 
 
 ## Push a floor position (x, z as a Vector2) out of anything it overlaps, and inside the walls.
 static func resolve(p: Vector2) -> Vector2:
 	for pass_i in 2:
-		for o in OBSTACLES:
+		for o in obstacles():
 			if o["shape"] == "circle":
 				var d := p - Vector2(o["x"], o["z"])
 				var min_d: float = o["r"] + PLAYER_RADIUS
