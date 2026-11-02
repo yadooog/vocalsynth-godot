@@ -25,6 +25,7 @@ var _best_rtt := 1e9           # the quickest ping lately: its clock reading is 
 var _have_clock := false
 var _tried := false
 var _retry_left := 0.0
+var _debug_left := 0.0
 var _retry_wait := 3.0
 var _character_script := preload("res://character/character.gd")
 
@@ -48,6 +49,16 @@ func _ready() -> void:
 	ws.connect_to_url(url())
 	_tried = true
 	main.beats.edited.connect(_on_beat_edited)
+
+
+## For browser tests: a little of the game's state, readable as window.__game.
+func _write_debug() -> void:
+	var d := {"online": connected, "you": you, "others": others.size(), "booth": main.booth_state,
+		"booth_owner": booth_owner, "song": main.song.sections.size(),
+		"live": main.song.sections.map(func(x): return x["live"]),
+		"remote_reveal": main.remote_reveal, "loop": main.beats.loop_index(),
+		"clock": snappedf(main.beats.clock, 0.01), "pos": [snappedf(main.character.position.x, 0.1), snappedf(main.character.position.z, 0.1)]}
+	JavaScriptBridge.eval("window.__game = " + JSON.stringify(d) + ";")
 
 
 static func _now() -> float:
@@ -92,6 +103,10 @@ func _process(delta: float) -> void:
 			ws = WebSocketPeer.new()
 			ws.connect_to_url(url())
 	_update_others(delta)
+	_debug_left -= delta
+	if _debug_left <= 0.0 and OS.has_feature("web"):
+		_debug_left = 0.5
+		_write_debug()
 
 
 func _send(msg: Dictionary) -> void:
