@@ -63,7 +63,7 @@ func add_section(keys: Array, owner := "", who := "", voice := -1) -> int:
 		tag.font_size = 40
 		tag.pixel_size = 0.01
 		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		tag.position.y = 3.6
+		tag.position.y = 4.4
 		singer.add_child(tag)
 	if stage_parent:
 		stage_parent.add_child(singer)

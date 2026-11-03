@@ -51,6 +51,7 @@ func url() -> String:
 func _ready() -> void:
 	if OS.has_feature("headless") or DisplayServer.get_name() == "headless":
 		return # tests run offline
+	_roomy(ws)
 	ws.connect_to_url(url())
 	_tried = true
 	main.beats.edited.connect(_on_beat_edited)
@@ -72,6 +73,14 @@ func _write_debug() -> void:
 		ui["round"] = [roundi(r.get_center().x), roundi(r.get_center().y)]
 	d["ui"] = ui
 	JavaScriptBridge.eval("window.__game = " + JSON.stringify(d) + ";")
+
+
+## Room for a busy room's messages to pile up between frames (the defaults overflow with ~20
+## players on a slow computer).
+static func _roomy(peer: WebSocketPeer) -> void:
+	peer.inbound_buffer_size = 1 << 20
+	peer.outbound_buffer_size = 1 << 18
+	peer.max_queued_packets = 16384
 
 
 static func _now() -> float:
@@ -116,6 +125,7 @@ func _process(delta: float) -> void:
 			_retry_left = _retry_wait
 			_retry_wait = minf(_retry_wait * 2.0, 60.0)
 			ws = WebSocketPeer.new()
+			_roomy(ws)
 			ws.connect_to_url(url())
 	_update_others(delta)
 	_debug_left -= delta
@@ -181,6 +191,12 @@ func _on_message(m: Dictionary) -> void:
 			if o:
 				o["target"] = Vector3(m["x"], m["y"], m["z"])
 				o["ry"] = float(m["ry"])
+		"moves": # everyone who moved lately, in one message: [id, x, y, z, ry] each
+			for e in m["m"]:
+				var o = others.get(e[0])
+				if o:
+					o["target"] = Vector3(e[1], e[2], e[3])
+					o["ry"] = float(e[4])
 		"voice":
 			var o = others.get(m["id"])
 			if o:
