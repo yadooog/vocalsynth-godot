@@ -30,7 +30,7 @@ func _ready() -> void:
 		b.text = r
 		b.name = r
 		b.focus_mode = Control.FOCUS_NONE
-		b.pressed.connect(func(): net.react(r))
+		b.pressed.connect(func(): net.react(r, stage_index()))
 		row.add_child(b)
 	banner = Label.new()
 	banner.theme_type_variation = &"BoldLabel"
@@ -69,11 +69,7 @@ func _on_game() -> void:
 
 ## Where the act on stage is: the reveal spot, or the singer whose loop is playing.
 func _stage_target() -> Node3D:
-	var i: int = main.remote_reveal if main.remote_reveal >= 0 else (main.reveal_index if main.booth_state == "reveal" else -1)
-	if i < 0 and main.vote_playing >= 0:
-		i = main.vote_playing
-	elif i < 0 and main.vote_playing == -1 and not main.song.sections.is_empty():
-		i = randi() % main.song.sections.size() # all together: anyone on stage
+	var i := stage_index()
 	if main.booth_state == "reveal" or main.booth_state == "reveal_wait":
 		return main.character
 	if i >= 0 and i < main.song.sections.size():
@@ -85,6 +81,18 @@ func _stage_target() -> Node3D:
 				return who["node"]
 		return s["singer"]
 	return null
+
+
+## Which loop in the song is on stage now (its reveal, or its turn in the vote), or -1.
+var _anyone := 0
+func stage_index() -> int:
+	var i: int = main.remote_reveal if main.remote_reveal >= 0 else (main.reveal_index if main.booth_state == "reveal" else -1)
+	if i < 0 and main.vote_playing >= 0:
+		i = main.vote_playing
+	elif i < 0 and main.vote_playing == -1 and not main.song.sections.is_empty():
+		_anyone = (_anyone + 1) % main.song.sections.size() # all together: anyone on stage
+		i = _anyone
+	return i
 
 
 func on_stage_now() -> bool:

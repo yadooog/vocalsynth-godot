@@ -277,8 +277,8 @@ func add_section(keys: Array, voice: int) -> void:
 
 
 ## Cheer or throw a tomato at whoever's on stage.
-func react(kind: String) -> void:
-	_send({"t": "react", "r": kind})
+func react(kind: String, at: int) -> void:
+	_send({"t": "react", "r": kind, "at": at})
 
 
 ## Sets the song's key for everyone (VoiceMap.key).

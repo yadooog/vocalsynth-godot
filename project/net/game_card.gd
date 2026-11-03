@@ -179,6 +179,9 @@ func _rebuild() -> void:
 			who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(who)
 			var n: int = int(tally[i]) if i < tally.size() else 0
+			var tomatoes := int(s.get("tomatoes", 0))
+			if tomatoes > 0:
+				row.add_child(_label("%d tomato%s" % [tomatoes, "" if tomatoes == 1 else "es"], &"DimLabel"))
 			row.add_child(_label("%d vote%s" % [n, "" if n == 1 else "s"], &"DimLabel"))
 			if i == winner:
 				row.add_child(_label("stays on", &"BoldLabel"))
