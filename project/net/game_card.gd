@@ -194,6 +194,14 @@ func _rebuild() -> void:
 			_box.add_child(on)
 
 	if phase == "over":
+		# Silly prizes from what the crowd did.
+		for a in g.get("awards", []):
+			var row := _row()
+			var prize := _label(str(a["title"]), &"DimLabel")
+			prize.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(prize)
+			row.add_child(_label(net.name_of(a["id"], str(a["name"])), &"BoldLabel"))
+			_box.add_child(row)
 		var again := _button("play again", net.start_game, &"BigButton", "again")
 		_box.add_child(again)
 
@@ -204,7 +212,8 @@ func _rebuild() -> void:
 	for k in scores.size():
 		var sc: Dictionary = scores[k]
 		if k < 5 or sc["id"] == net.you:
-			parts.append("%s%s %d" % ["" if k < 5 else "… ", net.name_of(sc["id"], str(sc["name"])), int(sc["points"])])
+			# (non-breaking spaces, so a name and its score never split across lines)
+			parts.append(("%s%s %d" % ["" if k < 5 else "… ", net.name_of(sc["id"], str(sc["name"])), int(sc["points"])]).replace(" ", "\u00a0"))
 	var line := _label("   ".join(parts), &"DimLabel")
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	line.custom_minimum_size.x = WIDTH - 24.0
