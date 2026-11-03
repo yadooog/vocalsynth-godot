@@ -127,6 +127,16 @@ func _initialize() -> void:
 			printerr("FAIL: with no key the pitch should slide")
 			ok = false
 		VoiceMap.key = 0
+		# Autotune follows the key: on with one, off without.
+		VoiceMap.tune(main.synth)
+		var tuned: float = main.synth.autotune
+		VoiceMap.key = -1
+		VoiceMap.tune(main.synth)
+		if tuned < 0.5 or main.synth.autotune > 0.01:
+			printerr("FAIL: autotune should be on with a key and off without (%s, %s)" % [tuned, main.synth.autotune])
+			ok = false
+		VoiceMap.key = 0
+		VoiceMap.tune(main.synth)
 		print("ok: key")
 		# The booth: walk in, make a phrase, finish, and it joins the song.
 		if not World.in_booth(World.BOOTH["x"], World.BOOTH["z"]) or World.in_booth(0.0, 0.0):
