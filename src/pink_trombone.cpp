@@ -88,6 +88,8 @@ void PinkTrombone::set_auto_wobble(bool v) { LOCK; synth->glottis.autoWobble = v
 bool PinkTrombone::get_auto_wobble() const { LOCK; return synth->glottis.autoWobble; }
 void PinkTrombone::set_vibrato_amount(double v) { LOCK; synth->glottis.vibratoAmount = v; }
 double PinkTrombone::get_vibrato_amount() const { LOCK; return synth->glottis.vibratoAmount; }
+void PinkTrombone::set_autotune(double v) { LOCK; synth->glottis.autotune = pt::clamp(v, 0, 1); }
+double PinkTrombone::get_autotune() const { LOCK; return synth->glottis.autotune; }
 void PinkTrombone::set_velum_open(bool v) { LOCK; synth->velumForcedOpen = v; }
 bool PinkTrombone::get_velum_open() const { LOCK; return synth->velumForcedOpen; }
 void PinkTrombone::set_voice_size(double v) { LOCK; synth->voiceSize = pt::clamp(v, 0.25, 4.0); }
@@ -140,6 +142,7 @@ void PinkTrombone::_bind_methods() {
 	PROP(BOOL, always_voice)
 	PROP(BOOL, auto_wobble)
 	PROP(FLOAT, vibrato_amount)
+	PROP(FLOAT, autotune)
 	PROP(BOOL, velum_open)
 	PROP(BOOL, tongue_full_range)
 	PROP(FLOAT, voice_size)

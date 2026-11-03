@@ -46,6 +46,8 @@ func set_booth_busy(on: bool) -> void:
 
 func _process(delta: float) -> void:
 	_thump *= exp(-delta / 0.09)
+	for b in bulbs:
+		b.scale = Vector3.ONE * (1.0 + 0.35 * _thump)
 	for s in speakers:
 		s[0].scale = Vector3(1.0 + 0.06 * _thump, 1.0 - 0.04 * _thump, 1.0 + 0.06 * _thump)
 		s[1].scale = Vector3.ONE * (1.0 + 0.25 * _thump)
@@ -108,6 +110,17 @@ func _build() -> void:
 	floor_mat.shader = preload("res://room/floor.gdshader")
 	_put(_box(Vector3(World.WIDTH, 0.1, World.DEPTH)), floor_mat, Vector3(0, -0.05, 0))
 	_build_terrain()
+	# The sky, all round.
+	var sky := MeshInstance3D.new()
+	var dome := SphereMesh.new()
+	dome.radius = 420.0
+	dome.height = 840.0
+	sky.mesh = dome
+	var sky_mat := ShaderMaterial.new()
+	sky_mat.shader = preload("res://room/sky.gdshader")
+	sky.material_override = sky_mat
+	sky.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(sky)
 
 	# Rugs: sam's rug model in each rug's colour, scaled to its size, with its name on top.
 	# The first rug has sam's stage on it, where sam put it in Blender.
@@ -121,7 +134,9 @@ func _build() -> void:
 		var disc := _put(rug_mesh, _mat(rug["color"], true), Vector3(rug["x"], ry, rug["z"]))
 		disc.scale = Vector3.ONE * k
 		if rug == World.RUGS[0]:
-			var stage := _put(stage_mesh, _mat(STAGE, true), Vector3(rug["x"], ry, rug["z"]))
+			var stage_mat := _mat(STAGE, true)
+			stage_mat.set_shader_parameter("planks", 1.0)
+			var stage := _put(stage_mesh, stage_mat, Vector3(rug["x"], ry, rug["z"]))
 			stage.scale = Vector3.ONE * k
 		var label := Label3D.new()
 		label.text = rug["name"]
@@ -133,6 +148,7 @@ func _build() -> void:
 		label.position = Vector3(rug["x"], ry + StageShape.RUG_H * k + 0.03, rug["z"] + rug["r"] - (0.9 if rug["r"] < 10.0 else 2.0))
 		add_child(label)
 	_build_mic()
+	_build_stage_lights()
 
 	var white := _mat(WHITE)
 	var wood := _mat(WOOD)
@@ -147,7 +163,14 @@ func _build() -> void:
 		var x: float = o["x"]
 		var z: float = o["z"]
 		# Things out in the hills stand on the ground; build them at the origin of a holder.
-		_into = null
+			# A soft shadow on the ground under it.
+		if o["kind"] != "pond" and o["kind"] != "booth":
+			var sr: float = o["r"] if o["shape"] == "circle" else maxf(o["w"], o["d"]) * 0.6
+			if o.has("s"):
+				sr = maxf(sr, 1.2 * float(o["s"]))
+			_shadow(Vector3(x, 0.0 if _into else World.height(x, z), z), sr * 1.25)
+
+	_into = null
 		if o["kind"] in ["pine", "bush", "rock", "pond"]:
 			_into = Node3D.new()
 			_into.position = Vector3(x, World.height(x, z) if o["kind"] != "pond" else 0.0, z)
@@ -227,6 +250,13 @@ func _build() -> void:
 				for sx in [-1.0, 1.0]:
 					_put(_box(Vector3(0.2, 0.95, d * 0.8)), white, Vector3(x + sx * (w / 2 - 0.4), 0.47, z))
 
+		# A soft shadow on the ground under it.
+		if o["kind"] != "pond" and o["kind"] != "booth":
+			var sr: float = o["r"] if o["shape"] == "circle" else maxf(o["w"], o["d"]) * 0.6
+			if o.has("s"):
+				sr = maxf(sr, 1.2 * float(o["s"]))
+			_shadow(Vector3(x, 0.0 if _into else World.height(x, z), z), sr * 1.25)
+
 	_into = null
 	_build_flowers()
 
@@ -245,6 +275,50 @@ func _build() -> void:
 	add_child(booth_sign)
 	booth_light = _mat(Color("#86c79a"), true, 0.03)
 	_put(_ball(0.22), booth_light, Vector3(bx + World.BOOTH["w"] / 2.0 - 0.15, 1.65, bz - 1.55))
+
+
+var bulbs: Array = []       # the lights strung over the stage: they glow brighter on the kick
+var _bulb_mat: ShaderMaterial
+
+
+func _shadow(at: Vector3, r: float) -> void:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(0.2, 0.18, 0.15, 0.13)
+	var disc := _put(_cyl(r, r, 0.01, 24), m, at + Vector3(0, 0.025, 0))
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+# Strings of lights over the back of the stage, on four poles.
+func _build_stage_lights() -> void:
+	var poles := [Vector2(-14.0, -3.5), Vector2(-8.5, -18.0), Vector2(8.5, -18.0), Vector2(14.0, -3.5)]
+	var tops := []
+	for p in poles:
+		var base := World.height(p.x, p.y)
+		var top := World.deck_y() + 6.0
+		_put(_cyl(0.07, 0.09, top - base, 8), _mat(INK), Vector3(p.x, (base + top) / 2.0, p.y))
+		tops.append(Vector3(p.x, top, p.y))
+	_bulb_mat = ShaderMaterial.new()
+	_bulb_mat.shader = toon_shader
+	_bulb_mat.set_shader_parameter("albedo", Color("#ffe39a"))
+	_bulb_mat.set_shader_parameter("light_dir_view", Vector3(0, 0, 1)) # glowing: lit all round
+	var wire := _mat(INK)
+	for i in tops.size() - 1:
+		var a: Vector3 = tops[i]
+		var b: Vector3 = tops[i + 1]
+		var n := int(a.distance_to(b) / 1.6)
+		var prev := a
+		for k in range(1, n + 1):
+			var t := float(k) / n
+			var q := a.lerp(b, t) - Vector3(0, 1.6 * sin(t * PI), 0) # sags in the middle
+			var mid := (prev + q) / 2.0
+			var seg := _put(_cyl(0.025, 0.025, prev.distance_to(q), 4), wire, mid)
+			seg.look_at_from_position(mid, q, Vector3.UP if absf((q - prev).normalized().y) < 0.99 else Vector3.RIGHT)
+			seg.rotate_object_local(Vector3.RIGHT, PI / 2)
+			if k < n:
+				bulbs.append(_put(_ball(0.2), _bulb_mat, q - Vector3(0, 0.22, 0)))
+			prev = q
 
 
 # The mic stand at the front of the stage, where you stand for your reveal.

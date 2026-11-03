@@ -11,6 +11,7 @@ var _box: VBoxContainer
 var _clock: Label            # time left in this part of the round
 var _brief_edit: LineEdit    # the brief, while you type it
 var _booth_go: Button        # on your turn: takes you to the booth
+var _playing: Label          # in the vote: whose loop is playing now
 var _my_vote := -1
 var _shown := ""             # the round and phase the card was built for, e.g. "3 vote"
 
@@ -37,6 +38,13 @@ func _process(_delta: float) -> void:
 		_clock.text = "%d:%02d" % [floori(s / 60.0), s % 60]
 	if _booth_go:
 		_booth_go.visible = main.booth_state == "room"
+	if _playing:
+		var i: int = main.listen if main.listen >= 0 else main.vote_playing
+		var text := "playing: everyone"
+		for s in net.game.get("sections", []):
+			if int(s["i"]) == i:
+				text = "playing: " + _section_name(s)
+		_playing.text = text
 
 
 func _rebuild() -> void:
@@ -57,6 +65,7 @@ func _rebuild() -> void:
 		_box.remove_child(c)
 		c.queue_free()
 	_clock = null
+	_playing = null
 	_brief_edit = null
 	_booth_go = null
 	visible = phase != "free"
@@ -99,6 +108,11 @@ func _rebuild() -> void:
 			for idea in g.get("suggestions", []):
 				ideas.add_child(_button(str(idea), _send_brief.bind(str(idea)), &"", "idea%d" % ideas.get_child_count()))
 			_box.add_child(ideas)
+			if main.can_set_key(): # a new song: pick its key too
+				var key_row := _row()
+				key_row.add_child(_label("key", &"DimLabel"))
+				key_row.add_child(main.make_key_picker())
+				_box.add_child(key_row)
 			if fresh or typing:
 				_focus_brief.call_deferred()
 	else:
@@ -147,6 +161,8 @@ func _rebuild() -> void:
 			row.add_child(vote)
 			_box.add_child(row)
 		var voted: Array = g.get("voted", [])
+		_playing = _label("", &"BoldLabel")
+		_box.add_child(_playing)
 		_box.add_child(_label("%d voted" % voted.size(), &"DimLabel"))
 
 	if phase == "results":
@@ -225,9 +241,11 @@ func _hint(g: Dictionary, phase: String) -> String:
 		"vote":
 			for s in g.get("sections", []):
 				if not s.get("kept", false) and s["owner"] != net.you:
-					return "listen to this round's loops and vote for your favourite"
-			return "the others are voting"
+					return "each new loop plays on its own, then all together. vote for your favourite (not your own). listen repeats one"
+			return "the others are voting on your loop"
 		"results":
+			if g.get("tally", []).all(func(n): return int(n) == 0):
+				return "no votes this time (it needs someone else to vote), so the first new loop stays on. the song carries on next round"
 			return "the top loop stays on in the song, and the song carries on next round"
 	return ""
 

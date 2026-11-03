@@ -9,6 +9,7 @@ class Glottis {
 public:
 	bool alwaysVoice = true;       // keep voicing even when nobody is holding the pitch control
 	bool autoWobble = true;        // slow random pitch drift
+	double autotune = 0;           // 0..1: snappier pitch changes and less drift, like pitch correction
 	bool isTouched = false;        // pitch control is being held
 	double targetTenseness = 0.6;  // 0 = breathy, 1 = tense
 	double targetFrequency = 140;  // Hz

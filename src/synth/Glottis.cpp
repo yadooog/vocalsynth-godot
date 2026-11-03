@@ -43,12 +43,13 @@ void Glottis::calculateNewFrequency(double time, double d) {
 	if (intensity == 0) {
 		smoothFrequency = targetFrequency;
 	} else if (targetFrequency > smoothFrequency) {
-		smoothFrequency = std::fmin(smoothFrequency * (1 + 0.1 * d), targetFrequency);
+		smoothFrequency = std::fmin(smoothFrequency * (1 + (0.1 + 0.6 * autotune) * d), targetFrequency);
 	} else if (targetFrequency < smoothFrequency) {
-		smoothFrequency = std::fmax(smoothFrequency / (1 + 0.1 * d), targetFrequency);
+		smoothFrequency = std::fmax(smoothFrequency / (1 + (0.1 + 0.6 * autotune) * d), targetFrequency);
 	}
 	oldFrequency = newFrequency;
-	newFrequency = std::fmax(10, smoothFrequency * (1 + calculateVibrato(time)));
+	// With autotune the pitch jumps quickly between notes and holds them, with little drift.
+	newFrequency = std::fmax(10, smoothFrequency * (1 + calculateVibrato(time) * (1 - autotune)));
 }
 
 void Glottis::calculateNewTenseness(double time) {

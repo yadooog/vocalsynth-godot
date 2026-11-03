@@ -8,5 +8,5 @@ void fragment() {
 	vec3 n = FRONT_FACING ? NORMAL : -NORMAL; // both sides lit the same
 	float ndl = dot(normalize(n), normalize(light_dir_view));
 	float tone = ndl > 0.55 ? 1.0 : (ndl > 0.05 ? 0.9 : 0.78);
-	ALBEDO = COLOR.rgb * tone;
+	ALBEDO = mix(COLOR.rgb * tone, vec3(0.925, 0.937, 0.925), smoothstep(70.0, 230.0, length(VERTEX)) * 0.7); // haze, as in toon
 }

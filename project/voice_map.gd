@@ -22,6 +22,13 @@ const VOICES := [
 const KEY_NAMES := ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
 const SCALES := [[0, 2, 4, 5, 7, 9, 11], [0, 2, 3, 5, 7, 8, 10]]
 static var key := 0
+const AUTOTUNE := 0.85 # with a key: quick jumps between its notes and flat, held pitch
+
+
+## A synth's pitch correction follows the key: on with a key, off without.
+static func tune(synth) -> void:
+	if synth != null and "autotune" in synth:
+		synth.autotune = AUTOTUNE if key >= 0 else 0.0
 
 
 static func key_name(k: int) -> String:
@@ -70,6 +77,7 @@ static func apply(synth, f: Dictionary, touching: Array, voice := -1) -> void:
 	if f.is_empty():
 		synth.voice_held = false
 		return
+	tune(synth)
 	var v: Dictionary = VOICES[voice] if voice >= 0 and voice < VOICES.size() else {}
 	synth.frequency = frequency(f["px"], v.get("shift", 0.0))
 	synth.tenseness = tenseness(f["py"])

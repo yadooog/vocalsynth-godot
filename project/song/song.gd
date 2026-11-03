@@ -54,6 +54,17 @@ func add_section(keys: Array, owner := "", who := "", voice := -1) -> int:
 	singer.position = Vector3(spot.x, World.height(spot.x, spot.y), spot.y)
 	singer.scale = Vector3.ONE * SINGER_SCALE * lerpf(1.2, 0.8, voice / 5.0) # big voices, big singers
 	singer.visible = false
+	if who != "":
+		# Whose loop it is, over the singer's head (for the vote).
+		var tag := Label3D.new()
+		tag.text = who
+		tag.modulate = Color(0.133, 0.133, 0.125)
+		tag.outline_size = 0
+		tag.font_size = 40
+		tag.pixel_size = 0.01
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.position.y = 3.6
+		singer.add_child(tag)
 	if stage_parent:
 		stage_parent.add_child(singer)
 	sections.append({"keys": keys.duplicate(true), "synth": synth, "player": player,

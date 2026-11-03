@@ -153,6 +153,17 @@ func _process(delta: float) -> void:
 		solo = _update_remote_reveal()
 	if solo < 0 and listen >= 0 and listen < song.sections.size():
 		solo = listen
+	vote_playing = -2
+	if solo < 0 and net.phase() == "vote":
+		# The vote plays this round's new loops one at a time, a loop each, then all together.
+		var fresh := []
+		for sec in net.game.get("sections", []):
+			if not sec.get("kept", false) and int(sec["i"]) < song.sections.size():
+				fresh.append(int(sec["i"]))
+		if not fresh.is_empty():
+			var n: int = beats.loop_index() % (fresh.size() + 1)
+			vote_playing = fresh[n] if n < fresh.size() else -1
+			solo = maxi(vote_playing, -1)
 	if song:
 		song.update(delta, lp, 1.0 if booth_state == "booth" else song_volume, time, solo)
 	if booth_state == "reveal":
@@ -545,6 +556,7 @@ var song_label: Label
 var spotlight: Node3D
 var listen := -1              # in a vote: the loop you're listening to on its own
 var voice_part := -1          # in the booth: which of VoiceMap.VOICES your section is for
+var vote_playing := -2        # in a vote: the new loop playing on its own, -1 all of them, -2 none
 var _size_before := 0.5
 var game_card: PanelContainer # the round, top right (net/game_card.gd)
 var round_button: Button      # "play a round", in the top bar
@@ -607,7 +619,11 @@ func _place_booth_bar() -> void:
 func _update_booth(delta: float) -> void:
 	if song == null:
 		return
-	song_label.text = "song %d/%d" % [song.sections.size(), song.MAX_SECTIONS]
+	song_label.text = "song %d/%d · %s" % [song.sections.size(), song.MAX_SECTIONS, VoiceMap.key_name(VoiceMap.key)]
+	var keyable := can_set_key()
+	_key_buttons = _key_buttons.filter(func(x): return is_instance_valid(x))
+	for b in _key_buttons:
+		b.disabled = not keyable
 	%TopBar.get_node("Row/Online").text = "%d online" % net.count() if net and net.is_online() else "offline"
 	if round_button:
 		round_button.visible = net.is_online() and not net.in_game()
@@ -738,31 +754,48 @@ func _build_game_ui() -> void:
 	move_child(%Help, -1) # help stays on top
 	# The song's key, on the beat panel: ‹ C major ›.
 	var head: Node = %BeatPanel.get_node("Box/Head")
-	var at: int = head.get_node("Bpm").get_index() + 1
-	for step in [-1, 1]:
-		var b := Button.new()
-		b.text = "‹" if step < 0 else "›"
-		b.focus_mode = Control.FOCUS_NONE
-		b.tooltip_text = "the song's key: everyone's notes snap to it"
-		b.pressed.connect(_step_key.bind(step))
-		head.add_child(b)
-		head.move_child(b, at)
-		at += 1
-		if step < 0:
-			_key_label = Label.new()
-			_key_label.theme_type_variation = &"DimLabel"
-			head.add_child(_key_label)
-			head.move_child(_key_label, at)
-			at += 1
+	var picker := make_key_picker()
+	head.add_child(picker)
+	head.move_child(picker, head.get_node("Bpm").get_index() + 1)
 	show_key(VoiceMap.key)
 
 
-var _key_label: Label
+var _key_labels: Array = []   # every key picker's label
+var _key_buttons: Array = []  # ...and arrows
+
+
+## ‹ C major ›: sets the song's key. Only while the song is empty, so its loops agree.
+func make_key_picker() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	for step in [-1, 1]:
+		var b := Button.new()
+		b.text = "‹" if step < 0 else "›"
+		b.name = "key_down" if step < 0 else "key_up"
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = "the song's key: everyone's notes snap to it. set it before the song starts"
+		b.pressed.connect(_step_key.bind(step))
+		b.disabled = not can_set_key()
+		row.add_child(b)
+		_key_buttons.append(b)
+		if step < 0:
+			var l := Label.new()
+			l.theme_type_variation = &"DimLabel"
+			l.text = VoiceMap.key_name(VoiceMap.key)
+			row.add_child(l)
+			_key_labels.append(l)
+	return row
+
+
+func can_set_key() -> bool:
+	return song == null or song.sections.is_empty()
 # The keys in the order the arrows step through them: none, C major, C minor, C# major...
 var _key_order := [-1]
 
 
 func _step_key(step: int) -> void:
+	if not can_set_key():
+		return
 	if _key_order.size() == 1:
 		for root in 12:
 			_key_order.append_array([root, root + 12])
@@ -774,8 +807,8 @@ func _step_key(step: int) -> void:
 ## The song's key changed (here or by someone else).
 func show_key(k: int) -> void:
 	VoiceMap.key = k
-	if _key_label:
-		_key_label.text = VoiceMap.key_name(k)
+	for l in _key_labels.filter(func(x): return is_instance_valid(x)):
+		l.text = VoiceMap.key_name(k)
 	if pitch_pad:
 		_on_pitch_moved(pitch_pad.value)
 
@@ -1123,7 +1156,7 @@ the booth: walk into the booth next to the stage to make your section of the son
 
 online: everyone here shares the booth, the song and the beat. play a round starts a game that keeps going round after round: one player picks the brief (a word, a theme or a genre), then everyone takes a 2 minute turn in the booth to add a loop. then you vote for your favourite new loop (not your own). each vote is a point. the top new loop stays on in the song, so the song builds up round by round, and every loop of yours still on scores 2 more points each round. the newest 3 loops stay on.
 
-the key: on the beat panel, ‹ › sets the song's key. everyone's notes snap to it, so the song stays in tune.
+the key: ‹ › on the beat panel (or with the brief) sets the song's key, while the song is empty. everyone's notes snap to it, with a touch of autotune, so the song stays in tune.
 
 the voices: the song has a voice for each loop, from a big low bass to a tiny squeak. in the booth you get the lowest one still free, so your size is set and the pitch pad covers that voice's range.
 
@@ -1137,6 +1170,7 @@ pink trombone by neil thapen (2017), modular version by christian d'heureuse. mi
 func _on_pitch_moved(v: Vector2) -> void:
 	if not synth:
 		return
+	VoiceMap.tune(synth)
 	synth.frequency = VoiceMap.frequency(v.x, VoiceMap.VOICES[voice_part]["shift"] if voice_part >= 0 else 0.0)
 	synth.tenseness = VoiceMap.tenseness(v.y)
 
