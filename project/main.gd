@@ -560,6 +560,7 @@ var vote_playing := -2        # in a vote: the new loop playing on its own, -1 a
 var _size_before := 0.5
 var game_card: PanelContainer # the round, top right (net/game_card.gd)
 var round_button: Button      # "play a round", in the top bar
+var crowd: Node               # cheers, tomatoes and the big words (net/crowd.gd)
 
 
 func _build_booth_ui() -> void:
@@ -751,6 +752,10 @@ func _build_game_ui() -> void:
 	var row: Node = %TopBar.get_node("Row")
 	row.add_child(round_button)
 	row.move_child(round_button, %HelpButton.get_index())
+	crowd = preload("res://net/crowd.gd").new()
+	crowd.main = self
+	crowd.net = net
+	add_child(crowd)
 	move_child(%Help, -1) # help stays on top
 	# The song's key, on the beat panel: ‹ C major ›.
 	var head: Node = %BeatPanel.get_node("Box/Head")
@@ -1153,6 +1158,8 @@ the say box: type something and press enter. it becomes a phrase you can tweak.
 your boards: the ‹ › arrows switch between sounds and phrases. on sounds, + saves the control pad as a pad (name it with up to 3 letters). click a pad to set the selected key to it, or to add a key at the playhead and step on, so tapping pads spells out a phrase. on phrases, + saves the whole timeline; click one to load and play it. right-click any pad to rename or remove it. in the booth, phrases and the say box are off, so your section is made fresh.
 
 the booth: walk into the booth next to the stage to make your section of the song. the song plays in your headphones and your phrase loops on the beat. press done and you're revealed on the stage: your section plays on its own, then joins the song.
+
+while someone's on stage, cheer or throw a tomato at them.
 
 online: everyone here shares the booth, the song and the beat. play a round starts a game that keeps going round after round: one player picks the brief (a word, a theme or a genre), then everyone takes a 2 minute turn in the booth to add a loop. then you vote for your favourite new loop (not your own). each vote is a point. the top new loop stays on in the song, so the song builds up round by round, and every loop of yours still on scores 2 more points each round. the newest 3 loops stay on.
 

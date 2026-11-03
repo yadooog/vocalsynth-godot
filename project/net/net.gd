@@ -203,6 +203,9 @@ func _on_message(m: Dictionary) -> void:
 			main.beats.pattern = m["pattern"]
 		"key":
 			main.show_key(int(m["k"]))
+		"react":
+			if main.crowd:
+				main.crowd.react(str(m["id"]), str(m["r"]))
 		"pong":
 			# Half the round trip has passed since the server read its clock. Trust the
 			# quickest round trips most (slow ones were held up somewhere).
@@ -255,6 +258,11 @@ func booth_owner_name() -> String:
 func add_section(keys: Array, voice: int) -> void:
 	if connected:
 		_send({"t": "section", "keys": keys, "voice": voice})
+
+
+## Cheer or throw a tomato at whoever's on stage.
+func react(kind: String) -> void:
+	_send({"t": "react", "r": kind})
 
 
 ## Sets the song's key for everyone (VoiceMap.key).
