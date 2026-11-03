@@ -447,4 +447,15 @@ func _update_others(delta: float) -> void:
 			var d := me.distance_to(node.position)
 			var k := clampf((d - HEARING_FULL) / (HEARING_SILENT - HEARING_FULL), 0.0, 1.0)
 			o["player"].volume_db = linear_to_db(maxf((1.0 - k) * (1.0 - k), 0.0001))
+			# Only run their voice while they make a sound you can hear: in a big room, a
+			# synth for everyone at once is too much for a browser.
+			var player: AudioStreamPlayer = o["player"]
+			if not f.is_empty() and k < 1.0:
+				o["quiet"] = 0.0
+				if not player.playing:
+					player.play()
+			else:
+				o["quiet"] = o.get("quiet", 0.0) + delta
+				if player.playing and o["quiet"] > 1.5:
+					player.stop()
 		node.update_character(delta, face, main.time)

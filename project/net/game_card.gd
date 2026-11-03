@@ -191,9 +191,12 @@ func _rebuild() -> void:
 
 	var scores: Array = g.get("scores", []).duplicate()
 	scores.sort_custom(func(a, b): return float(a["points"]) > float(b["points"]))
+	# The top five (in a big room), and you.
 	var parts := PackedStringArray()
-	for sc in scores:
-		parts.append("%s %d" % [net.name_of(sc["id"], str(sc["name"])), int(sc["points"])])
+	for k in scores.size():
+		var sc: Dictionary = scores[k]
+		if k < 5 or sc["id"] == net.you:
+			parts.append("%s%s %d" % ["" if k < 5 else "… ", net.name_of(sc["id"], str(sc["name"])), int(sc["points"])])
 	var line := _label("   ".join(parts), &"DimLabel")
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	line.custom_minimum_size.x = WIDTH - 24.0
