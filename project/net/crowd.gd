@@ -65,6 +65,9 @@ func _on_game() -> void:
 			announce("vote!")
 		"results":
 			announce("results")
+		"over":
+			var w: PackedStringArray = net.winners()
+			announce(("%s win%s!" % [w[0], "" if w[0] == "you" else "s"]) if w.size() == 1 else "a tie!")
 
 
 ## Where the act on stage is: the reveal spot, or the singer whose loop is playing.

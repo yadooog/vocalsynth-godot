@@ -73,7 +73,8 @@ func _rebuild() -> void:
 		return
 
 	var head := _row()
-	head.add_child(_label("round %d" % int(g.get("round", 1)), &"BoldLabel"))
+	var title := "game over" if phase == "over" else "round %d of %d" % [int(g.get("round", 1)), int(g.get("rounds", 3))]
+	head.add_child(_label(title, &"BoldLabel"))
 	var status := _label(_status(g, phase), &"DimLabel")
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status.clip_text = true
@@ -192,6 +193,10 @@ func _rebuild() -> void:
 			on.custom_minimum_size.x = WIDTH - 24.0
 			_box.add_child(on)
 
+	if phase == "over":
+		var again := _button("play again", net.start_game, &"BigButton", "again")
+		_box.add_child(again)
+
 	var scores: Array = g.get("scores", []).duplicate()
 	scores.sort_custom(func(a, b): return float(a["points"]) > float(b["points"]))
 	# The top five (in a big room), and you.
@@ -221,6 +226,8 @@ func _status(g: Dictionary, phase: String) -> String:
 			return "vote"
 		"results":
 			return "results"
+		"over":
+			return ""
 	return ""
 
 
@@ -253,6 +260,11 @@ func _hint(g: Dictionary, phase: String) -> String:
 				if not s.get("kept", false) and s["owner"] != net.you:
 					return "each new loop plays on its own, then all together. vote for your favourite (not your own). listen repeats one"
 			return "the others are voting on your loop"
+		"over":
+			var w: PackedStringArray = net.winners()
+			if w.size() == 1:
+				return "%s win%s! the song stays for everyone to play with" % [w[0], "" if w[0] == "you" else "s"]
+			return "a tie: %s. the song stays for everyone to play with" % " and ".join(w)
 		"results":
 			if g.get("tally", []).all(func(n): return int(n) == 0):
 				return "no votes this time (it needs someone else to vote), so the first new loop stays on. the song carries on next round"

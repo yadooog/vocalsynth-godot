@@ -1161,7 +1161,7 @@ the booth: walk into the booth next to the stage to make your section of the son
 
 while someone's on stage, cheer or throw a tomato at them.
 
-online: everyone here shares the booth, the song and the beat. play a round starts a game that keeps going round after round: one player picks the brief (a word, a theme or a genre), then everyone takes a 2 minute turn in the booth to add a loop. then you vote for your favourite new loop (not your own). each vote is a point. the top new loop stays on in the song, so the song builds up round by round, and every loop of yours still on scores 2 more points each round. the newest 3 loops stay on.
+online: everyone here shares the booth, the song and the beat. play a round starts a game of one round per player (3 to 6), and the top score wins. each round: one player picks the brief (a word, a theme or a genre), then everyone takes a 2 minute turn in the booth to add a loop. then you vote for your favourite new loop (not your own). each vote is a point. the top new loop stays on in the song, so the song builds up round by round, and every loop of yours still on scores 2 more points each round. the newest 3 loops stay on.
 
 the key: ‹ › on the beat panel (or with the brief) sets the song's key, while the song is empty. everyone's notes snap to it, with a touch of autotune, so the song stays in tune.
 

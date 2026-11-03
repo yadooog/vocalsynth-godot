@@ -343,7 +343,23 @@ func booth_refusal() -> String:
 			return "voting now"
 		"results":
 			return "next round soon"
+		"over":
+			return "the game's over"
 	return ""
+
+
+## Who has the top score (more than one on a tie), by name.
+func winners() -> PackedStringArray:
+	var best := -1
+	var out := PackedStringArray()
+	for sc in game.get("scores", []):
+		var pts := int(sc["points"])
+		if pts > best:
+			best = pts
+			out = PackedStringArray()
+		if pts == best:
+			out.append(name_of(sc["id"], str(sc["name"])))
+	return out
 
 
 ## Seconds left in this part of the round, on the room's clock.
