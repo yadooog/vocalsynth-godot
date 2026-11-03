@@ -163,14 +163,7 @@ func _build() -> void:
 		var x: float = o["x"]
 		var z: float = o["z"]
 		# Things out in the hills stand on the ground; build them at the origin of a holder.
-			# A soft shadow on the ground under it.
-		if o["kind"] != "pond" and o["kind"] != "booth":
-			var sr: float = o["r"] if o["shape"] == "circle" else maxf(o["w"], o["d"]) * 0.6
-			if o.has("s"):
-				sr = maxf(sr, 1.2 * float(o["s"]))
-			_shadow(Vector3(x, 0.0 if _into else World.height(x, z), z), sr * 1.25)
-
-	_into = null
+		_into = null
 		if o["kind"] in ["pine", "bush", "rock", "pond"]:
 			_into = Node3D.new()
 			_into.position = Vector3(x, World.height(x, z) if o["kind"] != "pond" else 0.0, z)
