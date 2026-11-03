@@ -253,7 +253,7 @@ func _hint(g: Dictionary, phase: String) -> String:
 			if g.get("sections", []).any(func(x): return not x.get("kept", false) and x["owner"] == net.you):
 				return "%s is in the booth. your loop's in the song" % who
 			if not queue.has(net.you):
-				return "%s is in the booth. the song's full this round, so you go first next round" % who
+				return "%s is in the booth. the song's full this round. you'll get a turn in a later round" % who
 			return "%s is making a loop in the booth" % who
 		"vote":
 			for s in g.get("sections", []):

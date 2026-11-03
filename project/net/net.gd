@@ -417,11 +417,12 @@ func _add(p: Dictionary) -> void:
 	var tag := Label3D.new()
 	tag.text = p["name"]
 	tag.modulate = Color(0.133, 0.133, 0.125)
-	tag.outline_size = 0
-	tag.font_size = 40
+	tag.outline_modulate = Color(0.97, 0.96, 0.93)
+	tag.outline_size = 10
+	tag.font_size = 32
 	tag.pixel_size = 0.01
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	tag.no_depth_test = true
+	# Hidden behind heads (depth tested), so a crowd doesn't turn into a wall of names.
 	tag.position.y = 3.3
 	node.add_child(tag)
 	o["tag"] = tag

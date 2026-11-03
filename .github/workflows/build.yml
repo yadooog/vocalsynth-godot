@@ -104,7 +104,8 @@ jobs:
         run: ./godot --headless --path project --import || true
 
       - name: Smoke test
-        run: ./godot --headless --path project -s res://tests/smoke_test.gd
+        timeout-minutes: 8
+        run: timeout 300 ./godot --headless --path project -s res://tests/smoke_test.gd
 
   commit:
     needs: [build, test]
