@@ -275,9 +275,16 @@ func _hint(g: Dictionary, phase: String) -> String:
 				return "%s win%s! the song stays for everyone to play with" % [w[0], "" if w[0] == "you" else "s"]
 			return "a tie: %s. the song stays for everyone to play with" % " and ".join(w)
 		"results":
-			if g.get("tally", []).all(func(n): return int(n) == 0):
-				return "no votes this time (it needs someone else to vote), so the first new loop stays on. the song carries on next round"
-			return "the top loop stays on in the song, and the song carries on next round"
+			var no_votes: bool = g.get("tally", []).all(func(n): return int(n) == 0)
+			var why := ""
+			match str(g.get("decider", "votes")):
+				"crowd":
+					why = "no votes, so the crowd's cheers and tomatoes decided" if no_votes else "a tie, so the crowd's cheers and tomatoes decided"
+				"coin":
+					why = "no votes, so a coin toss decided" if no_votes else "a tie, so a coin toss decided"
+				_:
+					why = "the top loop stays on"
+			return "%s. the song carries on next round" % why
 	return ""
 
 
